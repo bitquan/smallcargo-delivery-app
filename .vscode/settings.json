@@ -1,0 +1,45 @@
+{
+  // Flutter/Dart Performance Optimizations
+  "dart.analysisServerFolding": false,
+  "dart.previewFlutterUiGuides": false,
+  "dart.previewFlutterUiGuidesCustomTracking": false,
+  "dart.flutterHotReloadOnSave": "never",
+  "dart.flutterHotRestartOnSave": "never",
+  
+  // General VS Code Performance
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/build/**": true,
+    "**/.dart_tool/**": true,
+    "**/ios/**": true,
+    "**/android/**": true,
+    "**/windows/**": true,
+    "**/macos/**": true,
+    "**/linux/**": true
+  },
+  "search.exclude": {
+    "**/build": true,
+    "**/.dart_tool": true,
+    "**/ios": true,
+    "**/android": true,
+    "**/windows": true,
+    "**/macos": true,
+    "**/linux": true
+  },
+  
+  // Reduce file monitoring
+  "files.associations": {
+    "*.dart": "dart"
+  },
+  
+  // Disable unnecessary features
+  "editor.minimap.enabled": false,
+  "editor.bracketPairColorization.enabled": false,
+  "editor.guides.bracketPairs": false,
+  
+  // Flutter specific
+  "dart.devToolsTheme": "dark",
+  "dart.checkForSdkUpdates": false
+}

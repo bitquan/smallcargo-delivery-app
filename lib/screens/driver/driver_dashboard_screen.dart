@@ -1,0 +1,1141 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/constants/app_constants.dart';
+import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
+import '../../models/order.dart' as order_model;
+import '../../models/user.dart';
+import '../../widgets/order_filter_dialog.dart';
+
+class DriverDashboardScreen extends StatefulWidget {
+  const DriverDashboardScreen({super.key});
+
+  @override
+  State<DriverDashboardScreen> createState() => _DriverDashboardScreenState();
+}
+
+class _DriverDashboardScreenState extends State<DriverDashboardScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  bool _isOnline = false;
+  
+  // Filter and sort state for available orders
+  order_model.OrderPriority? _priorityFilter;
+  double? _maxDistance = 50.0;
+  double? _minPayment = 0.0;
+  String _sortBy = 'priority';
+  bool _isFilterActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA), // Light gray background
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Modern Header with gradient
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppConstants.primaryColor, Color(0xFF2E7D32)],
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hi ${user?.name ?? 'Driver'}!',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Ready to deliver?',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.local_shipping,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Online/Offline Toggle
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isOnline = false;
+                                });
+                                _updateDriverStatus(false);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: !_isOnline ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Offline',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: !_isOnline ? Colors.red : Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isOnline = true;
+                                });
+                                _updateDriverStatus(true);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _isOnline ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Online',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _isOnline ? Colors.green : Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Statistics Cards with Real-time Data
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: user != null ? DatabaseService().getTodayDriverStats(user.id) : null,
+                builder: (context, snapshot) {
+                  final stats = snapshot.data ?? {
+                    'deliveriesToday': 0,
+                    'earningsToday': 0.0,
+                  };
+                  
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _buildModernStatCard(
+                          'Today\'s Deliveries',
+                          '${stats['deliveriesToday']}',
+                          Icons.local_shipping,
+                          Colors.blue,
+                          'Completed today',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildModernStatCard(
+                          'Earnings Today',
+                          '\$${stats['earningsToday'].toStringAsFixed(0)}',
+                          Icons.attach_money,
+                          Colors.green,
+                          'Total earned',
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            
+            // Tab Bar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: AppConstants.primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                indicatorPadding: const EdgeInsets.all(4),
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.grey[600],
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+                tabs: const [
+                  Tab(text: 'Available'),
+                  Tab(text: 'Active'),
+                  Tab(text: 'History'),
+                  Tab(text: 'Analytics'),
+                ],
+              ),
+            ),
+            
+            // Tab Content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildAvailableOrdersTab(user),
+                  _buildActiveOrdersTab(user),
+                  _buildHistoryTab(user),
+                  _buildAnalyticsTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernStatCard(String title, String value, IconData icon, Color color, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvailableOrdersTab(User? user) {
+    if (user == null) {
+      return const Center(child: Text('Please log in to view orders'));
+    }
+
+    return Column(
+      children: [
+        // Filter Bar
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _isFilterActive ? 'Filtered Orders' : 'All Available Orders',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (_isFilterActive)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _priorityFilter = null;
+                      _maxDistance = 50.0;
+                      _minPayment = 0.0;
+                      _sortBy = 'priority';
+                      _isFilterActive = false;
+                    });
+                  },
+                  child: const Text('Clear Filters'),
+                ),
+              IconButton(
+                onPressed: () => _showFilterDialog(),
+                icon: Icon(
+                  Icons.filter_list,
+                  color: _isFilterActive ? AppConstants.primaryColor : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Orders List
+        Expanded(
+          child: _isFilterActive
+              ? _buildFilteredOrdersList(user)
+              : _buildRealTimeOrdersList(user),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRealTimeOrdersList(User user) {
+    return StreamBuilder<List<order_model.Order>>(
+      stream: DatabaseService().getAvailableOrdersStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, size: 64, color: Colors.red[300]),
+                const SizedBox(height: 16),
+                const Text('Error loading orders'),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => setState(() {}),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final orders = snapshot.data ?? [];
+
+        if (orders.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.inbox, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No available orders', 
+                     style: TextStyle(color: Colors.grey, fontSize: 16)),
+                SizedBox(height: 8),
+                Text('Check back soon for new deliveries!',
+                     style: TextStyle(color: Colors.grey, fontSize: 14)),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return _buildOrderCard(order, true);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFilteredOrdersList(User user) {
+    return FutureBuilder<List<order_model.Order>>(
+      future: DatabaseService().getFilteredAvailableOrders(
+        priority: _priorityFilter,
+        maxDistance: _maxDistance,
+        minPayment: _minPayment,
+        sortBy: _sortBy,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, size: 64, color: Colors.red[300]),
+                const SizedBox(height: 16),
+                const Text('Error loading filtered orders'),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => setState(() {}),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final orders = snapshot.data ?? [];
+
+        if (orders.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.search_off, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No orders match your filters', 
+                     style: TextStyle(color: Colors.grey, fontSize: 16)),
+                SizedBox(height: 8),
+                Text('Try adjusting your filter criteria',
+                     style: TextStyle(color: Colors.grey, fontSize: 14)),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return _buildOrderCard(order, true);
+          },
+        );
+      },
+    );
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => OrderFilterDialog(
+        initialPriority: _priorityFilter,
+        initialMaxDistance: _maxDistance,
+        initialMinPayment: _minPayment,
+        initialSortBy: _sortBy,
+        onApplyFilters: (priority, maxDistance, minPayment, sortBy) {
+          setState(() {
+            _priorityFilter = priority;
+            _maxDistance = maxDistance;
+            _minPayment = minPayment;
+            _sortBy = sortBy ?? 'priority';
+            _isFilterActive = priority != null || 
+                            (maxDistance != null && maxDistance < 50.0) ||
+                            (minPayment != null && minPayment > 0.0) ||
+                            sortBy != 'priority';
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildActiveOrdersTab(User? user) {
+    if (user == null) {
+      return const Center(child: Text('Please log in to view orders'));
+    }
+
+    return StreamBuilder<List<order_model.Order>>(
+      stream: DatabaseService().getDriverActiveOrdersStream(user.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, size: 64, color: Colors.red[300]),
+                const SizedBox(height: 16),
+                Text('Error loading orders'),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => setState(() {}),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final orders = snapshot.data ?? [];
+        final activeOrders = orders.where((order) => 
+          order.status != order_model.OrderStatus.delivered &&
+          order.status != order_model.OrderStatus.cancelled
+        ).toList();
+
+        if (activeOrders.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.assignment, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No active orders', 
+                     style: TextStyle(color: Colors.grey, fontSize: 16)),
+                SizedBox(height: 8),
+                Text('Accept orders from the Available tab',
+                     style: TextStyle(color: Colors.grey, fontSize: 14)),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: activeOrders.length,
+          itemBuilder: (context, index) {
+            final order = activeOrders[index];
+            return _buildOrderCard(order, false);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOrderCard(order_model.Order order, bool isAvailable) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getPriorityColor(order.priority).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    order.priority.name.toUpperCase(),
+                    style: TextStyle(
+                      color: _getPriorityColor(order.priority),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '\$${order.estimatedCost.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'From: ${order.pickupAddress}',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'To: ${order.deliveryAddress}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _buildInfoChip(Icons.schedule, '${order.estimatedDeliveryTime?.hour}:${order.estimatedDeliveryTime?.minute}'),
+                const SizedBox(width: 8),
+                _buildInfoChip(Icons.location_on, '2.3 km'),
+                const Spacer(),
+                if (isAvailable)
+                  ElevatedButton(
+                    onPressed: () => _acceptOrder(order),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppConstants.primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Accept', style: TextStyle(color: Colors.white)),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: () => _updateOrderStatus(order),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppConstants.secondaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      _getNextStatusText(order.status),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey[600]),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildHistoryTab(User? user) {
+    return Container(
+      color: Colors.grey[50],
+      child: const Center(
+        child: Text('Order History - Coming Soon'),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsTab() {
+    final authService = Provider.of<AuthService>(context);
+    final user = authService.currentUser;
+    
+    if (user == null) {
+      return const Center(child: Text('Please log in to view analytics'));
+    }
+    
+    return FutureBuilder<Map<String, dynamic>>(
+      future: DatabaseService().getDriverAnalytics(user.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, size: 64, color: Colors.red[300]),
+                const SizedBox(height: 16),
+                Text('Error loading analytics: ${snapshot.error}'),
+              ],
+            ),
+          );
+        }
+        
+        final analytics = snapshot.data!;
+        
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Overview Cards
+              const Text(
+                'Performance Overview',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Total Deliveries',
+                      '${analytics['totalDeliveries']}',
+                      Icons.local_shipping,
+                      Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Total Earnings',
+                      '\$${analytics['totalEarnings'].toStringAsFixed(2)}',
+                      Icons.attach_money,
+                      Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 12),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Avg Order Value',
+                      '\$${analytics['avgOrderValue'].toStringAsFixed(2)}',
+                      Icons.trending_up,
+                      Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'On-Time Rate',
+                      '${analytics['onTimeRate'].toStringAsFixed(1)}%',
+                      Icons.schedule,
+                      AppConstants.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // This Month Performance
+              const Text(
+                'This Month',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Deliveries',
+                      '${analytics['thisMonthDeliveries']}',
+                      Icons.calendar_month,
+                      Colors.purple,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Earnings',
+                      '\$${analytics['thisMonthEarnings'].toStringAsFixed(2)}',
+                      Icons.account_balance_wallet,
+                      Colors.teal,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Weekly Performance
+              const Text(
+                'Recent Performance',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Orders (7 days)',
+                      '${analytics['weeklyOrders']}',
+                      Icons.assignment,
+                      Colors.indigo,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Active Orders',
+                      '${analytics['activeOrders']}',
+                      Icons.local_shipping_outlined,
+                      Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Priority Breakdown
+              const Text(
+                'Order Priority Breakdown',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              _buildPriorityBreakdownChart(analytics['priorityBreakdown']),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildAnalyticsCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPriorityBreakdownChart(Map<String, int> priorityBreakdown) {
+    final total = priorityBreakdown.values.fold(0, (sum, count) => sum + count);
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: priorityBreakdown.entries.map((entry) {
+          final percentage = total > 0 ? (entry.value / total * 100) : 0.0;
+          final color = _getPriorityColor(
+            order_model.OrderPriority.values.firstWhere(
+              (p) => p.name == entry.key,
+              orElse: () => order_model.OrderPriority.medium,
+            ),
+          );
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 80,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    entry.key.toUpperCase(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: percentage / 100,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '${entry.value} (${percentage.toStringAsFixed(1)}%)',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Color _getPriorityColor(order_model.OrderPriority priority) {
+    switch (priority) {
+      case order_model.OrderPriority.urgent:
+        return Colors.red;
+      case order_model.OrderPriority.high:
+        return Colors.orange;
+      case order_model.OrderPriority.medium:
+        return Colors.blue;
+      case order_model.OrderPriority.low:
+        return Colors.grey;
+    }
+  }
+
+  String _getNextStatusText(order_model.OrderStatus status) {
+    switch (status) {
+      case order_model.OrderStatus.confirmed:
+        return 'Pick Up';
+      case order_model.OrderStatus.pickedUp:
+        return 'In Transit';
+      case order_model.OrderStatus.inTransit:
+        return 'Delivered';
+      default:
+        return 'Update';
+    }
+  }
+
+  void _updateDriverStatus(bool isOnline) async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final user = authService.currentUser;
+      
+      if (user != null) {
+        await DatabaseService().updateDriverStatus(user.id, isOnline);
+        setState(() {
+          _isOnline = isOnline;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating status: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _acceptOrder(order_model.Order order) async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final user = authService.currentUser;
+      
+      if (user != null) {
+        await DatabaseService().acceptOrder(order.id, user.id);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order accepted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error accepting order: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _updateOrderStatus(order_model.Order order) async {
+    try {
+      order_model.OrderStatus newStatus;
+      switch (order.status) {
+        case order_model.OrderStatus.confirmed:
+          newStatus = order_model.OrderStatus.pickedUp;
+          break;
+        case order_model.OrderStatus.pickedUp:
+          newStatus = order_model.OrderStatus.inTransit;
+          break;
+        case order_model.OrderStatus.inTransit:
+          newStatus = order_model.OrderStatus.delivered;
+          break;
+        default:
+          return;
+      }
+
+      await DatabaseService().updateOrderStatusByDriver(order.id, newStatus);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order status updated to ${newStatus.name}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating order: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}

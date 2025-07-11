@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Small Cargo - Efficient cargo tracking and delivery management">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Small Cargo">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Small Cargo</title>
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Firebase Configuration -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging.js"></script>
+  
+  <!-- Google Maps API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBirnBdv4bAiKjJCu1i_uKam7VmWFzD90o&libraries=places&callback=initGoogleMaps&loading=async" async defer></script>
+  
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXrXpxeVG2tUBhgp-1bTr3dOVsHRD7Awk",
+      authDomain: "small-cargo-t.firebaseapp.com",
+      projectId: "small-cargo-t",
+      storageBucket: "small-cargo-t.firebasestorage.app",
+      messagingSenderId: "1071738785343",
+      appId: "1:1071738785343:web:a214cba5e60ec6dd87f28a"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // Initialize Google Maps
+    function initGoogleMaps() {
+      console.log('Google Maps API loaded');
+      // Maps will be initialized by Flutter
+    }
+    
+    // Error handling
+    window.addEventListener('error', function(e) {
+      console.error('Global error:', e.error);
+    });
+  </script>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
