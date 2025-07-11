@@ -1,0 +1,37 @@
+# Build configuration for production deployment
+flutter:
+  web:
+    # Enable PWA features
+    pwa:
+      enabled: true
+      # App manifest settings
+      manifest:
+        name: "Small Cargo Delivery"
+        short_name: "SmallCargo"
+        description: "Professional delivery and logistics management platform"
+        theme_color: "#FFEB3B"
+        background_color: "#000000"
+        display: "standalone"
+        orientation: "portrait"
+        icons:
+          - src: "icons/icon-192.png"
+            sizes: "192x192"
+            type: "image/png"
+          - src: "icons/icon-512.png"
+            sizes: "512x512"
+            type: "image/png"
+    
+    # Optimize bundle size
+    optimize: true
+    sourcemaps: false
+    
+    # Enable caching
+    caching:
+      enabled: true
+      strategy: "cache-first"
+    
+    # Performance optimizations
+    performance:
+      tree_shaking: true
+      minification: true
+      compression: true

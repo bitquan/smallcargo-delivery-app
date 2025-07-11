@@ -11,18 +11,18 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFF172554), // Dark blue background
+      scaffoldBackgroundColor: Colors.black, // Black background everywhere
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         brightness: Brightness.light,
         primary: primaryColor,
-        secondary: accentColor,
-        surface: const Color(0xFF1E3A8A), // Dark blue surface
-        surfaceContainerLowest: const Color(0xFF172554), // Darker blue
-        onPrimary: Colors.white, // White text on primary
-        onSecondary: Colors.white,
-        onSurface: Colors.white, // White text on dark blue surfaces
-        onSurfaceVariant: const Color(0xFFE2E8F0), // Light gray text for secondary
+        secondary: primaryColor, // Use yellow instead of teal
+        surface: Colors.black, // Black surfaces for cards
+        surfaceContainerLowest: Colors.black, // Black containers
+        onPrimary: Colors.black, // Black text on yellow primary
+        onSecondary: Colors.black, // Black text on yellow secondary
+        onSurface: Colors.yellow, // Yellow text on black surfaces
+        onSurfaceVariant: Colors.yellow, // Yellow for secondary text
       ),
       
       // App Bar Theme
@@ -44,52 +44,55 @@ class AppTheme {
         elevation: 4.0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
+          side: const BorderSide(color: Colors.yellow, width: 1),
         ),
-        color: const Color(0xFF1E3A8A), // Dark blue background for better text contrast
-        shadowColor: Colors.black.withValues(alpha: 0.2),
+        color: Colors.black, // Black cards with yellow border
+        shadowColor: Colors.yellow.withValues(alpha: 0.3),
       ),
       
       // Dialog Theme
       dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xFF1E3A8A), // Dark blue background
+        backgroundColor: Colors.black, // Black background
         surfaceTintColor: Colors.transparent,
         titleTextStyle: const TextStyle(
-          color: Colors.white, // White text for better contrast
+          color: Colors.yellow, // Yellow text for better contrast
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
         contentTextStyle: const TextStyle(
-          color: Colors.white, // White text for better contrast
+          color: Colors.yellow, // Yellow text for better contrast
           fontSize: 16,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+          side: const BorderSide(color: Colors.yellow, width: 1),
         ),
       ),
       
       // Bottom Sheet Theme
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Color(0xFF1E3A8A), // Dark blue background
+        backgroundColor: Colors.black, // Black background
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppConstants.borderRadius),
           ),
+          side: BorderSide(color: Colors.yellow, width: 1),
         ),
       ),
       
       // List Tile Theme
       listTileTheme: const ListTileThemeData(
-        textColor: Colors.white, // White text for better contrast
-        iconColor: Colors.white, // White icons for better contrast
+        textColor: Colors.yellow, // Yellow text for better contrast
+        iconColor: Colors.yellow, // Yellow icons for better contrast
         tileColor: Colors.transparent,
       ),
 
       // Button Themes
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.yellow,
+          foregroundColor: Colors.black,
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -100,8 +103,8 @@ class AppTheme {
       
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
-          side: const BorderSide(color: primaryColor),
+          foregroundColor: Colors.yellow,
+          side: const BorderSide(color: Colors.yellow),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.borderRadius),
           ),
@@ -113,15 +116,15 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-          borderSide: const BorderSide(color: Colors.white, width: 1),
+          borderSide: const BorderSide(color: Colors.yellow, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-          borderSide: const BorderSide(color: Colors.white70, width: 1),
+          borderSide: const BorderSide(color: Colors.yellow, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-          borderSide: const BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: Colors.yellow, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -129,15 +132,15 @@ class AppTheme {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         filled: true,
-        fillColor: Colors.white, // White background for input fields
-        labelStyle: const TextStyle(color: Colors.grey), // Dark gray labels
-        hintStyle: const TextStyle(color: Colors.grey), // Dark gray hints
-        floatingLabelStyle: const TextStyle(color: primaryColor), // Primary color for floating labels
+        fillColor: Colors.black.withOpacity(0.3), // Dark transparent background
+        labelStyle: const TextStyle(color: Colors.yellow), // Yellow labels
+        hintStyle: TextStyle(color: Colors.yellow.withOpacity(0.7)), // Yellow hints
+        floatingLabelStyle: const TextStyle(color: Colors.yellow), // Yellow floating labels
       ),
       
       // Icon Theme
       iconTheme: const IconThemeData(
-        color: Colors.white, // White icons for dark blue background
+        color: Colors.yellow, // Yellow icons for consistency
         size: 24,
       ),
       
@@ -146,57 +149,57 @@ class AppTheme {
         headlineLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.bold,
-          color: Colors.white, // White text for dark blue background
+          color: Colors.yellow, // Yellow text for dark backgrounds
         ),
         headlineMedium: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         headlineSmall: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         titleLarge: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         titleMedium: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w500,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         titleSmall: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: Colors.white,
+          color: Colors.yellow,
         ),
       ),
       
       // Bottom Navigation Bar Theme
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF1E3A8A), // Dark blue background
-        selectedItemColor: primaryColor,
-        unselectedItemColor: Colors.white70, // Light text for better visibility
+        backgroundColor: Colors.black, // Black background
+        selectedItemColor: Colors.yellow,
+        unselectedItemColor: Colors.yellow, // Yellow text for consistency
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
@@ -204,7 +207,7 @@ class AppTheme {
       // Floating Action Button Theme
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        foregroundColor: Colors.black, // Black icon on yellow background
         elevation: 6,
       ),
       
@@ -220,17 +223,18 @@ class AppTheme {
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
+      scaffoldBackgroundColor: Colors.black, // Black background everywhere
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         brightness: Brightness.dark,
         primary: primaryColor,
-        secondary: accentColor,
-        surface: const Color(0xFF2E2E2E), // Dark gray surface
-        surfaceContainerLowest: const Color(0xFF1A1A1A), // Darker surface
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onSurface: Colors.white,
-        onSurfaceVariant: const Color(0xFFB0B0B0), // Light gray for secondary text
+        secondary: primaryColor, // Use yellow instead of teal
+        surface: Colors.black, // Black surface
+        surfaceContainerLowest: Colors.black, // Black surface
+        onPrimary: Colors.black, // Black text on yellow primary
+        onSecondary: Colors.black, // Black text on yellow secondary
+        onSurface: Colors.yellow, // Yellow text on black surface
+        onSurfaceVariant: Colors.yellow, // Yellow for secondary text
       ),
       
       // App Bar Theme
@@ -252,19 +256,17 @@ class AppTheme {
         elevation: 4.0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
+          side: const BorderSide(color: Colors.yellow, width: 1),
         ),
-        color: const Color(0xFF2E2E2E), // Dark gray for better contrast with white text
-        shadowColor: Colors.black.withValues(alpha: 0.3),
+        color: Colors.black, // Black cards with yellow border
+        shadowColor: Colors.yellow.withValues(alpha: 0.3),
       ),
-      
-      // Scaffold Theme
-      scaffoldBackgroundColor: const Color(0xFF1A1A1A), // Better dark background
       
       // Button Themes
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: Colors.black, // Black text on yellow button
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -340,7 +342,7 @@ class AppTheme {
       // Floating Action Button Theme
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        foregroundColor: Colors.black, // Black icon on yellow background
         elevation: 6,
       ),
     );

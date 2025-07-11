@@ -6,6 +6,16 @@
   "dart.flutterHotReloadOnSave": "never",
   "dart.flutterHotRestartOnSave": "never",
   
+  // Disable Auto Port Forwarding
+  "remote.autoForwardPorts": false,
+  "remote.autoForwardPortsSource": "hybrid",
+  "remote.portsAttributes": {
+    "*": {
+      "autoForward": "off"
+    }
+  },
+  "dart.openDevTools": "never",
+  
   // General VS Code Performance
   "files.watcherExclude": {
     "**/.git/objects/**": true,

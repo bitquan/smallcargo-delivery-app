@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
-import '../../core/constants/app_constants.dart';
+import '../../core/design_system/app_design_system.dart';
 import '../../models/order.dart' as order_model;
 import '../../services/tracking_service.dart';
-import '../../widgets/common_widgets.dart';
 import 'package:intl/intl.dart';
 
 class TrackingScreen extends StatefulWidget {
@@ -14,10 +13,15 @@ class TrackingScreen extends StatefulWidget {
   State<TrackingScreen> createState() => _TrackingScreenState();
 }
 
-class _TrackingScreenState extends State<TrackingScreen> {
+class _TrackingScreenState extends State<TrackingScreen> with TickerProviderStateMixin {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
   
   // Sample active order for demo
   order_model.Order? _activeOrder;
@@ -26,21 +30,46 @@ class _TrackingScreenState extends State<TrackingScreen> {
   // Driver location
   LatLng _currentDriverLocation = const LatLng(40.7128, -74.0060); // NYC
   double _driverHeading = 0.0;
-  double _driverSpeed = 0.0;
   
   // Map settings
   static const LatLng _defaultCenter = LatLng(40.7128, -74.0060);
   static const double _defaultZoom = 12.0;
+  
+  bool _showOrderDetails = true;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     _loadActiveOrder();
     _startRealTimeTracking();
   }
 
+  void _setupAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    
+    _animationController.forward();
+    _pulseController.repeat(reverse: true);
+  }
+
   @override
   void dispose() {
+    _animationController.dispose();
+    _pulseController.dispose();
     _locationSubscription?.cancel();
     TrackingService.stopTracking();
     super.dispose();
@@ -88,7 +117,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
         setState(() {
           _currentDriverLocation = location.position;
           _driverHeading = location.heading;
-          _driverSpeed = location.speed;
           _activeOrder = _activeOrder!.copyWith(
             estimatedDeliveryTime: location.estimatedArrival,
           );
@@ -147,7 +175,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             _currentDriverLocation, // Current driver location
             const LatLng(40.7295, -74.0103), // Delivery
           ],
-          color: AppConstants.primaryColor,
+          color: AppDesignSystem.primaryGold,
           width: 4,
           patterns: [PatternItem.dash(20), PatternItem.gap(10)],
         ),
@@ -155,299 +183,452 @@ class _TrackingScreenState extends State<TrackingScreen> {
     });
   }
 
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-    _updateMapMarkers();
-  }
-
-  void _centerMapOnDriver() {
-    if (_mapController != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLng(_currentDriverLocation),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF4DB6AC),
-      appBar: const GradientAppBar(
-        title: 'Order Tracking',
-      ),
-      body: _activeOrder == null
-          ? _buildNoActiveOrderView()
-          : _buildTrackingView(),
-    );
-  }
-
-  Widget _buildNoActiveOrderView() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.track_changes,
-            size: 64,
-            color: Colors.white70,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'No Active Orders',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Create an order to start tracking',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackingView() {
-    return Column(
-      children: [
-        // Order status header
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: _buildOrderStatusCard(),
-        ),
-        
-        // Map
-        Expanded(
-          flex: 2,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: GoogleMap(
-                onMapCreated: _onMapCreated,
-                initialCameraPosition: const CameraPosition(
-                  target: _defaultCenter,
-                  zoom: _defaultZoom,
-                ),
-                markers: _markers,
-                polylines: _polylines,
-                zoomControlsEnabled: false,
-                mapToolbarEnabled: false,
-                myLocationButtonEnabled: false,
-                compassEnabled: false,
-                mapType: MapType.normal,
-              ),
-            ),
-          ),
-        ),
-        
-        // Driver info and actions
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+      backgroundColor: AppDesignSystem.backgroundDark,
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Stack(
             children: [
-              _buildDriverInfoCard(),
-              const SizedBox(height: 12),
-              _buildActionButtons(),
+              // Header
+              _buildHeader(),
+              
+              // Map
+              Positioned(
+                top: 120,
+                left: 0,
+                right: 0,
+                bottom: _showOrderDetails ? 280 : 0,
+                child: _buildMap(),
+              ),
+              
+              // Order Details Panel
+              if (_showOrderDetails)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 280,
+                  child: _buildOrderDetailsPanel(),
+                ),
+              
+              // Floating Action Buttons
+              Positioned(
+                right: 16,
+                bottom: _showOrderDetails ? 300 : 20,
+                child: _buildFloatingButtons(),
+              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildOrderStatusCard() {
+  Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 120,
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        gradient: AppDesignSystem.primaryGradient,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(
+                        Icons.track_changes,
+                        color: AppDesignSystem.primaryGold,
+                        size: 24,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Live Tracking',
+                    style: AppDesignSystem.headlineMedium.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (_activeOrder != null)
+                    Text(
+                      'Order ${_activeOrder!.trackingNumber}',
+                      style: AppDesignSystem.bodyMedium.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          
+          // Status Badge
+          if (_activeOrder != null)
+            AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: _pulseAnimation.value,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor().withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _getStatusColor().withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _getStatusText(),
+                          style: AppDesignSystem.bodySmall.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMap() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.all(16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: GoogleMap(
+          onMapCreated: (GoogleMapController controller) {
+            _mapController = controller;
+          },
+          initialCameraPosition: const CameraPosition(
+            target: _defaultCenter,
+            zoom: _defaultZoom,
+          ),
+          markers: _markers,
+          polylines: _polylines,
+          mapType: MapType.normal,
+          myLocationEnabled: false,
+          zoomControlsEnabled: false,
+          mapToolbarEnabled: false,
+          compassEnabled: true,
+          trafficEnabled: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderDetailsPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppDesignSystem.primaryGradient,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Panel Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Order #${_activeOrder!.trackingNumber}',
-                    style: const TextStyle(
-                      fontSize: 18,
+                    'Order Details',
+                    style: AppDesignSystem.headlineSmall.copyWith(
+                      color: AppDesignSystem.primaryGold,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _activeOrder!.description,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
+                  InkWell(
+                    onTap: () => setState(() => _showOrderDetails = false),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppDesignSystem.primaryGold.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: AppDesignSystem.primaryGold,
+                      ),
                     ),
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(_activeOrder!.status),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _getStatusText(_activeOrder!.status),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+            ),
+            
+            // Order Info
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    _buildProgressSteps(),
+                    const SizedBox(height: 16),
+                    _buildOrderInfo(),
+                    const SizedBox(height: 16),
+                    _buildDeliveryEstimate(),
+                  ],
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressSteps() {
+    final steps = [
+      {'title': 'Order Placed', 'completed': true},
+      {'title': 'Picked Up', 'completed': true},
+      {'title': 'In Transit', 'completed': true},
+      {'title': 'Delivered', 'completed': false},
+    ];
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppDesignSystem.backgroundCard,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: steps.asMap().entries.map((entry) {
+          final index = entry.key;
+          final step = entry.value;
+          final isLast = index == steps.length - 1;
+          
+          return Expanded(
+            child: Row(
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: step['completed'] as bool
+                            ? AppDesignSystem.primaryGold
+                            : AppDesignSystem.textMuted.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: step['completed'] as bool
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 14,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      step['title'] as String,
+                      style: AppDesignSystem.bodySmall.copyWith(
+                        color: step['completed'] as bool
+                            ? AppDesignSystem.primaryGold
+                            : AppDesignSystem.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      height: 2,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      color: step['completed'] as bool
+                          ? AppDesignSystem.primaryGold
+                          : AppDesignSystem.textMuted.withOpacity(0.3),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildOrderInfo() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildInfoCard(
+            'Package',
+            _activeOrder?.description ?? 'N/A',
+            Icons.inventory_2,
           ),
-          const SizedBox(height: 16),
-          _buildOrderTimeline(),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildInfoCard(
+            'Weight',
+            '${_activeOrder?.weight ?? 0} kg',
+            Icons.scale,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildInfoCard(
+            'Priority',
+            _activeOrder?.priority.name.toUpperCase() ?? 'N/A',
+            Icons.priority_high,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppDesignSystem.backgroundCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppDesignSystem.primaryGold.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: AppDesignSystem.primaryGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: AppDesignSystem.bodySmall.copyWith(
+              color: AppDesignSystem.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: AppDesignSystem.bodyMedium.copyWith(
+              color: AppDesignSystem.primaryGold,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildOrderTimeline() {
-    return Row(
-      children: [
-        _buildTimelineStep(
-          icon: Icons.store,
-          title: 'Picked Up',
-          time: '2 hours ago',
-          isCompleted: true,
-        ),
-        Expanded(
-          child: Container(
-            height: 2,
-            color: AppConstants.primaryColor,
-          ),
-        ),
-        _buildTimelineStep(
-          icon: Icons.local_shipping,
-          title: 'In Transit',
-          time: 'Now',
-          isCompleted: true,
-          isActive: true,
-        ),
-        Expanded(
-          child: Container(
-            height: 2,
-            color: Colors.grey[300],
-          ),
-        ),
-        _buildTimelineStep(
-          icon: Icons.home,
-          title: 'Delivered',
-          time: '35 mins',
-          isCompleted: false,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimelineStep({
-    required IconData icon,
-    required String title,
-    required String time,
-    required bool isCompleted,
-    bool isActive = false,
-  }) {
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isCompleted 
-                ? AppConstants.primaryColor 
-                : isActive 
-                    ? AppConstants.accentColor 
-                    : Colors.grey[300],
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: isCompleted || isActive ? Colors.white : Colors.grey,
-            size: 20,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: isCompleted || isActive ? Colors.black87 : Colors.grey,
-          ),
-        ),
-        Text(
-          time,
-          style: TextStyle(
-            fontSize: 10,
-            color: isCompleted || isActive ? AppConstants.primaryColor : Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDriverInfoCard() {
+  Widget _buildDeliveryEstimate() {
+    final eta = _activeOrder?.estimatedDeliveryTime;
+    if (eta == null) return const SizedBox();
+    
+    final timeRemaining = eta.difference(DateTime.now());
+    final etaText = timeRemaining.isNegative
+        ? 'Overdue'
+        : '${timeRemaining.inMinutes} min';
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: AppDesignSystem.primaryGradient,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppDesignSystem.primaryGold.withOpacity(0.3),
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: AppConstants.primaryColor,
-            child: Text(
-              _activeOrder!.driverId?.isNotEmpty == true 
-                  ? _activeOrder!.driverId![0].toUpperCase() 
-                  : 'D',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.access_time,
+              color: Colors.white,
+              size: 24,
             ),
           ),
           const SizedBox(width: 16),
@@ -456,60 +637,34 @@ class _TrackingScreenState extends State<TrackingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _activeOrder!.driverId ?? 'Driver',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                  'Estimated Delivery',
+                  style: AppDesignSystem.bodyMedium.copyWith(
+                    color: Colors.white.withOpacity(0.9),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'ETA: ${DateFormat('h:mm a').format(_activeOrder!.estimatedDeliveryTime!)}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppConstants.primaryColor,
-                    fontWeight: FontWeight.w500,
+                  DateFormat('h:mm a').format(eta),
+                  style: AppDesignSystem.headlineSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (_driverSpeed > 0)
-                  Text(
-                    'Speed: ${_driverSpeed.toStringAsFixed(0)} mph',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.green[100],
+              color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Online',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            child: Text(
+              etaText,
+              style: AppDesignSystem.bodyMedium.copyWith(
+                color: AppDesignSystem.primaryGold,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -517,49 +672,43 @@ class _TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
-  Widget _buildActionButtons() {
-    return Row(
+  Widget _buildFloatingButtons() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
-          child: GradientOutlinedButton(
-            onPressed: () {
-              // TODO: Implement call driver
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Calling ${_activeOrder!.driverId}...'),
-                ),
-              );
-            },
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.phone, size: 18),
-                SizedBox(width: 8),
-                Text('Call Driver'),
-              ],
-            ),
+        if (!_showOrderDetails)
+          FloatingActionButton(
+            onPressed: () => setState(() => _showOrderDetails = true),
+            backgroundColor: AppDesignSystem.primaryGold,
+            child: const Icon(Icons.info_outline, color: Colors.white),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: GradientElevatedButton(
-            onPressed: _centerMapOnDriver,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.my_location, size: 18, color: Colors.white),
-                SizedBox(width: 8),
-                Text('Center Map', style: TextStyle(color: Colors.white)),
-              ],
-            ),
-          ),
+        const SizedBox(height: 12),
+        FloatingActionButton(
+          onPressed: _centerMapOnDriver,
+          backgroundColor: Colors.white,
+          child: const Icon(Icons.my_location, color: AppDesignSystem.primaryGold),
         ),
       ],
     );
   }
 
-  Color _getStatusColor(order_model.OrderStatus status) {
-    switch (status) {
+  void _centerMapOnDriver() {
+    if (_mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: _currentDriverLocation,
+            zoom: 15.0,
+          ),
+        ),
+      );
+    }
+  }
+
+  Color _getStatusColor() {
+    if (_activeOrder == null) return Colors.grey;
+    
+    switch (_activeOrder!.status) {
       case order_model.OrderStatus.pending:
         return Colors.orange;
       case order_model.OrderStatus.confirmed:
@@ -567,28 +716,30 @@ class _TrackingScreenState extends State<TrackingScreen> {
       case order_model.OrderStatus.pickedUp:
         return Colors.purple;
       case order_model.OrderStatus.inTransit:
-        return AppConstants.primaryColor;
-      case order_model.OrderStatus.delivered:
         return Colors.green;
+      case order_model.OrderStatus.delivered:
+        return AppDesignSystem.primaryGold;
       case order_model.OrderStatus.cancelled:
         return Colors.red;
     }
   }
 
-  String _getStatusText(order_model.OrderStatus status) {
-    switch (status) {
+  String _getStatusText() {
+    if (_activeOrder == null) return 'No Order';
+    
+    switch (_activeOrder!.status) {
       case order_model.OrderStatus.pending:
-        return 'PENDING';
+        return 'Pending';
       case order_model.OrderStatus.confirmed:
-        return 'CONFIRMED';
+        return 'Confirmed';
       case order_model.OrderStatus.pickedUp:
-        return 'PICKED UP';
+        return 'Picked Up';
       case order_model.OrderStatus.inTransit:
-        return 'IN TRANSIT';
+        return 'In Transit';
       case order_model.OrderStatus.delivered:
-        return 'DELIVERED';
+        return 'Delivered';
       case order_model.OrderStatus.cancelled:
-        return 'CANCELLED';
+        return 'Cancelled';
     }
   }
 }

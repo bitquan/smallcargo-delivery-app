@@ -4,6 +4,8 @@ import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'services/location_service.dart';
 import 'services/route_optimization_service.dart';
+import 'services/integration_test_service.dart';
+import 'screens/testing/integration_test_screen.dart';
 
 class CoreFunctionTester {
   static Future<void> testCoreServices(BuildContext context) async {
@@ -241,5 +243,21 @@ class _CoreFunctionTestScreenState extends State<CoreFunctionTestScreen> {
         _isRunning = false;
       });
     }
+  }
+
+  /// Navigate to comprehensive integration testing screen
+  static Future<void> openIntegrationTestScreen(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const IntegrationTestScreen(),
+      ),
+    );
+  }
+
+  /// Run integration tests directly without navigation
+  static Future<List<TestResult>> runIntegrationTestsDirectly(BuildContext context) async {
+    final integrationService = IntegrationTestService();
+    return await integrationService.runIntegrationTests(context);
   }
 }

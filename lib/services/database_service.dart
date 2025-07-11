@@ -1364,6 +1364,131 @@ class DatabaseService {
     final timestamp = now.millisecondsSinceEpoch.toString();
     return 'SC${timestamp.substring(timestamp.length - 8)}';
   }
+
+  /// Get filtered orders for reports
+  Future<List<order_model.Order>> getFilteredOrders({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? customerId,
+    String? driverId,
+    order_model.OrderStatus? status,
+    order_model.OrderPriority? priority,
+  }) async {
+    try {
+      Query query = ordersCollection;
+
+      // Add filters
+      if (customerId != null) {
+        query = query.where('customerId', isEqualTo: customerId);
+      }
+      
+      if (driverId != null) {
+        query = query.where('driverId', isEqualTo: driverId);
+      }
+      
+      if (status != null) {
+        query = query.where('status', isEqualTo: status.name);
+      }
+      
+      if (priority != null) {
+        query = query.where('priority', isEqualTo: priority.name);
+      }
+      
+      if (startDate != null) {
+        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      
+      if (endDate != null) {
+        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate));
+      }
+
+      final snapshot = await query.get();
+      
+      return snapshot.docs
+          .map((doc) => order_model.Order.fromSnapshot(doc))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } catch (e) {
+      throw DatabaseException('Failed to get filtered orders: $e');
+    }
+  }
+
+  /// Update user profile
+  Future<void> updateUserProfile(
+    String userId, {
+    String? name,
+    String? email,
+    String? phoneNumber,
+    UserRole? role,
+    String? profileImageUrl,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (name != null) updates['name'] = name;
+      if (email != null) updates['email'] = email;
+      if (phoneNumber != null) updates['phoneNumber'] = phoneNumber;
+      if (role != null) updates['role'] = role.name;
+      if (profileImageUrl != null) updates['profileImageUrl'] = profileImageUrl;
+      if (additionalData != null) updates['additionalData'] = additionalData;
+      
+      await usersCollection.doc(userId).update(updates);
+    } catch (e) {
+      throw DatabaseException('Failed to update user profile: $e');
+    }
+  }
+
+  /// Update user active status
+  Future<void> updateUserActiveStatus(String userId, bool isActive) async {
+    try {
+      await usersCollection.doc(userId).update({
+        'isActive': isActive,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw DatabaseException('Failed to update user active status: $e');
+    }
+  }
+
+  /// Delete user
+  Future<void> deleteUser(String userId) async {
+    try {
+      // Get user document first to check if it exists
+      final userDoc = await usersCollection.doc(userId).get();
+      if (!userDoc.exists) {
+        throw DatabaseException('User not found');
+      }
+      
+      // Remove user from all assigned orders
+      final userOrders = await ordersCollection
+          .where('driverId', isEqualTo: userId)
+          .where('status', whereIn: [
+            order_model.OrderStatus.confirmed.name,
+            order_model.OrderStatus.pickedUp.name,
+            order_model.OrderStatus.inTransit.name,
+          ]).get();
+      
+      // Update orders to remove driver assignment
+      final batch = _firestore.batch();
+      for (final orderDoc in userOrders.docs) {
+        batch.update(orderDoc.reference, {
+          'driverId': null,
+          'status': order_model.OrderStatus.pending.name,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      
+      // Delete user document
+      batch.delete(usersCollection.doc(userId));
+      
+      await batch.commit();
+    } catch (e) {
+      throw DatabaseException('Failed to delete user: $e');
+    }
+  }
 }
 
 class DatabaseException implements Exception {

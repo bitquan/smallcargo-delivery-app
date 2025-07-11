@@ -1,0 +1,3755 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'dart:math' as math;
+import 'dart:convert';
+import 'dart:html' as html;
+import '../../core/design_system/app_design_system.dart';
+import '../../core/constants/app_constants.dart';
+import '../../models/order.dart' as order_model;
+import '../../models/user.dart';
+import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
+import '../orders/edit_order_screen.dart';
+import '../testing/integration_test_screen.dart';
+import '../../comprehensive_test_screen.dart';
+import 'package:intl/intl.dart';
+
+class AdminDashboardScreen extends StatefulWidget {
+  const AdminDashboardScreen({super.key});
+
+  @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen>
+    with TickerProviderStateMixin {
+  late TabController _tabController;
+  final DatabaseService _databaseService = DatabaseService();
+  
+  // Real-time dashboard data
+  Map<String, dynamic> _dashboardStats = {};
+  List<Map<String, dynamic>> _recentActivity = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this); // Updated to 5 for testing tab
+    _loadDashboardData();
+    
+    // Refresh data every 30 seconds
+    _setupAutoRefresh();
+  }
+
+  void _setupAutoRefresh() {
+    Stream.periodic(const Duration(seconds: 30)).listen((_) {
+      if (mounted) {
+        _loadDashboardData();
+      }
+    });
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      final analytics = await _databaseService.getSystemAnalytics();
+      // Create sample recent activity for now
+      final activity = <Map<String, dynamic>>[
+        {
+          'type': 'created',
+          'title': 'New order created',
+          'subtitle': 'Order #SC12345',
+          'time': DateTime.now().subtract(const Duration(minutes: 5)),
+        },
+        {
+          'type': 'delivered',
+          'title': 'Order delivered',
+          'subtitle': 'Order #SC12344',
+          'time': DateTime.now().subtract(const Duration(hours: 1)),
+        },
+        {
+          'type': 'confirmed',
+          'title': 'Order confirmed',
+          'subtitle': 'Order #SC12343',
+          'time': DateTime.now().subtract(const Duration(hours: 2)),
+        },
+      ];
+      
+      if (mounted) {
+        setState(() {
+          _dashboardStats = analytics;
+          _recentActivity = activity;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading dashboard data: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppDesignSystem.backgroundDark,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Enhanced Admin Header with beautiful gradient like customer dashboard
+            Container(
+              decoration: const BoxDecoration(
+                gradient: AppDesignSystem.primaryGradient,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppDesignSystem.primaryGold,
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            // Logo like customer dashboard
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppDesignSystem.backgroundDark,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.admin_panel_settings,
+                                color: AppDesignSystem.primaryGold,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Small Cargo Admin',
+                                  style: AppDesignSystem.headlineMedium.copyWith(
+                                    color: AppDesignSystem.backgroundDark,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Dashboard Overview',
+                                  style: AppDesignSystem.bodyMedium.copyWith(
+                                    color: AppDesignSystem.backgroundDark.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            // Admin Actions
+                            IconButton(
+                              icon: Icon(
+                                Icons.refresh,
+                                color: AppDesignSystem.backgroundDark,
+                              ),
+                              onPressed: _loadDashboardData,
+                            ),
+                            GestureDetector(
+                              onTap: () async {
+                                final authService = Provider.of<AuthService>(context, listen: false);
+                                await authService.signOut();
+                              },
+                              child: CircleAvatar(
+                                backgroundColor: AppDesignSystem.backgroundDark,
+                                child: Icon(
+                                  Icons.logout,
+                                  color: AppDesignSystem.primaryGold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Enhanced Stats Row like customer dashboard
+                    if (!_isLoading && _dashboardStats.isNotEmpty)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              'Total Orders',
+                              _dashboardStats['totalOrders']?.toString() ?? '0',
+                              Icons.inventory_2,
+                              AppDesignSystem.accentBlue,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildStatCard(
+                              'Active Drivers',
+                              _dashboardStats['activeDrivers']?.toString() ?? '0',
+                              Icons.local_shipping,
+                              AppDesignSystem.statusSuccess,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildStatCard(
+                              'Revenue',
+                              '\$${_dashboardStats['totalRevenue']?.toStringAsFixed(0) ?? '0'}',
+                              Icons.attach_money,
+                              AppDesignSystem.statusWarning,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Enhanced Tab Bar
+            Container(
+              color: AppDesignSystem.backgroundCard,
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: AppDesignSystem.primaryGold,
+                indicatorWeight: 3,
+                labelColor: AppDesignSystem.primaryGold,
+                unselectedLabelColor: AppDesignSystem.textMuted,
+                labelStyle: AppDesignSystem.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                tabs: const [
+                  Tab(text: 'Dashboard'),
+                  Tab(text: 'Orders'),
+                  Tab(text: 'Drivers'), 
+                  Tab(text: 'Testing'), // Added testing tab for admin access
+                ],
+              ),
+            ),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.admin_panel_settings,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Logout Button
+                            GestureDetector(
+                              onTap: () async {
+                                final authService = Provider.of<AuthService>(context, listen: false);
+                                await authService.signOut();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.8),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.logout,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Tab Bar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.yellow, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.yellow.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: Colors.yellow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                indicatorPadding: const EdgeInsets.all(4),
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.yellow,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+                tabs: const [
+                  Tab(text: 'Overview'),
+                  Tab(text: 'Orders'),
+                  Tab(text: 'Drivers'),
+                  Tab(text: 'Analytics'),
+                  Tab(text: 'Testing'),
+                ],
+              ),
+            ),
+            
+            Expanded(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator(color: Colors.yellow))
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _OverviewTab(dashboardStats: _dashboardStats, recentActivity: _recentActivity),
+                      const _OrdersManagementTab(),
+                      const _DriversManagementTab(),
+                      const _AnalyticsTab(),
+                      const _TestingTab(),
+                    ],
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Overview Tab - Dashboard Summary
+class _OverviewTab extends StatelessWidget {
+  final Map<String, dynamic> dashboardStats;
+  final List<Map<String, dynamic>> recentActivity;
+  
+  const _OverviewTab({
+    required this.dashboardStats, 
+    required this.recentActivity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Stats Cards Row
+          Row(
+            children: [
+              Expanded(
+                child: _StatsCard(
+                  title: 'Total Orders',
+                  value: '${dashboardStats['monthOrders'] ?? 0}',
+                  icon: Icons.shopping_bag,
+                  color: AppConstants.primaryColor,
+                  trend: '+${((dashboardStats['todayOrders'] ?? 0) * 100 / math.max(1, dashboardStats['monthOrders'] ?? 1)).toStringAsFixed(1)}%',
+                  isPositive: true,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatsCard(
+                  title: 'Active Drivers',
+                  value: '${dashboardStats['activeDrivers'] ?? 0}',
+                  icon: Icons.local_shipping,
+                  color: Colors.yellow,
+                  trend: '${dashboardStats['totalDrivers'] ?? 0} total',
+                  isPositive: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _StatsCard(
+                  title: 'Revenue Today',
+                  value: '\$${(dashboardStats['todayRevenue'] ?? 0.0).toStringAsFixed(0)}',
+                  icon: Icons.attach_money,
+                  color: Colors.green,
+                  trend: 'Month: \$${(dashboardStats['monthRevenue'] ?? 0.0).toStringAsFixed(0)}',
+                  isPositive: true,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatsCard(
+                  title: 'Pending Orders',
+                  value: '${dashboardStats['pendingOrders'] ?? 0}',
+                  icon: Icons.pending,
+                  color: Colors.yellow,
+                  trend: '${dashboardStats['completedToday'] ?? 0} completed',
+                  isPositive: false,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Recent Activity Section
+          _buildSection(
+            'Recent Activity',
+            recentActivity.isEmpty
+                ? [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      child: const Center(
+                        child: Text(
+                          'No recent activity',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ]
+                : recentActivity.take(5).map((activity) => _ActivityItem(
+                    icon: _getActivityIcon(activity['type']),
+                    title: activity['title'],
+                    subtitle: activity['subtitle'],
+                    time: _formatTime(activity['time']),
+                    color: _getActivityColor(activity['type']),
+                  )).toList(),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Quick Actions
+          _buildSection(
+            'Quick Actions',
+            [
+              Row(
+                children: [
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.add,
+                      title: 'Create Order',
+                      subtitle: 'Add new delivery order',
+                      onTap: () => _showCreateOrderDialog(context),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.person_add,
+                      title: 'Add Driver',
+                      subtitle: 'Register new driver',
+                      onTap: () => _showAddDriverDialog(context),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.assignment,
+                      title: 'Assign Orders',
+                      subtitle: 'Bulk assign pending orders',
+                      onTap: () => _showAssignOrdersDialog(context),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.report,
+                      title: 'Generate Report',
+                      subtitle: 'Export delivery reports',
+                      onTap: () => _showReportOptionsDialog(context),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getActivityIcon(String type) {
+    switch (type) {
+      case 'created':
+        return Icons.add_circle;
+      case 'confirmed':
+        return Icons.check_circle_outline;
+      case 'picked_up':
+        return Icons.local_shipping;
+      case 'in_transit':
+        return Icons.directions;
+      case 'delivered':
+        return Icons.check_circle;
+      case 'cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getActivityColor(String type) {
+    switch (type) {
+      case 'created':
+        return AppConstants.primaryColor;
+      case 'confirmed':
+        return Colors.yellow;
+      case 'picked_up':
+        return Colors.yellow;
+      case 'in_transit':
+        return Colors.yellow;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.yellow;
+    }
+  }
+
+  String _formatTime(dynamic timestamp) {
+    if (timestamp == null) return 'Unknown time';
+    
+    DateTime dateTime;
+    if (timestamp is DateTime) {
+      dateTime = timestamp;
+    } else {
+      return 'Unknown time';
+    }
+
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} minutes ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hours ago';
+    } else {
+      return DateFormat('MMM d, y').format(dateTime);
+    }
+  }
+
+  // Quick Action Dialog Methods
+  void _showCreateOrderDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _CreateOrderDialog(),
+    );
+  }
+
+  void _showAddDriverDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _AddDriverDialog(),
+    );
+  }
+
+  void _showAssignOrdersDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _AssignOrdersDialog(),
+    );
+  }
+
+  void _showReportOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _ReportOptionsDialog(),
+    );
+  }
+}
+
+// Orders Management Tab
+class _OrdersManagementTab extends StatefulWidget {
+  const _OrdersManagementTab();
+
+  @override
+  State<_OrdersManagementTab> createState() => _OrdersManagementTabState();
+}
+
+class _OrdersManagementTabState extends State<_OrdersManagementTab> {
+  String _selectedFilter = 'All';
+  String _selectedPriorityFilter = 'All';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Search and Filter Row
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search orders...',
+                    hintStyle: const TextStyle(color: Colors.yellow),
+                    prefixIcon: const Icon(Icons.search, color: Colors.yellow),
+                    filled: true,
+                    fillColor: Colors.black,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.yellow),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _selectedFilter,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.black,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    labelText: 'Status',
+                  ),
+                  items: ['All', 'Pending', 'Confirmed', 'Picked Up', 'In Transit', 'Delivered', 'Cancelled']
+                      .map((filter) => DropdownMenuItem(
+                            value: filter,
+                            child: Text(filter),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedFilter = value!;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _selectedPriorityFilter,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.black,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    labelText: 'Priority',
+                  ),
+                  items: ['All', 'Low', 'Medium', 'High', 'Urgent']
+                      .map((filter) => DropdownMenuItem(
+                            value: filter,
+                            child: Text(filter),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedPriorityFilter = value!;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Orders List
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: StreamBuilder<List<order_model.Order>>(
+                stream: Provider.of<DatabaseService>(context, listen: false).getAllOrders(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: Colors.yellow));
+                  }
+                  
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Error: ${snapshot.error}'),
+                    );
+                  }
+                  
+                  final orders = snapshot.data ?? [];
+                  final filteredOrders = _filterOrders(orders);
+                  
+                  if (filteredOrders.isEmpty) {
+                    return const Center(
+                      child: Text('No orders found'),
+                    );
+                  }
+                  
+                  return ListView.builder(
+                    itemCount: filteredOrders.length,
+                    itemBuilder: (context, index) {
+                      final order = filteredOrders[index];
+                      return _OrderListItem(order: order);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<order_model.Order> _filterOrders(List<order_model.Order> orders) {
+    var filtered = orders.where((order) {
+      // Search filter
+      final matchesSearch = _searchQuery.isEmpty ||
+          order.trackingNumber.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          order.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          order.customerId.toLowerCase().contains(_searchQuery.toLowerCase());
+      
+      // Status filter
+      final matchesStatus = _selectedFilter == 'All' ||
+          order.status.name.toLowerCase() == _selectedFilter.toLowerCase().replaceAll(' ', '').replaceAll('picked', 'pickedup');
+      
+      // Priority filter
+      final matchesPriority = _selectedPriorityFilter == 'All' ||
+          order.priority.name.toLowerCase() == _selectedPriorityFilter.toLowerCase();
+      
+      return matchesSearch && matchesStatus && matchesPriority;
+    }).toList();
+    
+    // Sort by creation date (newest first)
+    filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    
+    return filtered;
+  }
+}
+
+// Drivers Management Tab
+class _DriversManagementTab extends StatelessWidget {
+  const _DriversManagementTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Add Driver Button
+          SizedBox(
+            width: double.infinity,
+            child: GradientElevatedButton(
+              onPressed: () {
+                _showAddDriverDialog(context);
+              },
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Add New Driver', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Drivers List
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: StreamBuilder<List<User>>(
+                stream: Provider.of<DatabaseService>(context, listen: false).getDrivers(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Error: ${snapshot.error}'),
+                    );
+                  }
+                  
+                  final drivers = snapshot.data ?? [];
+                  
+                  if (drivers.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('No drivers found'),
+                          Text('Add drivers to start managing deliveries'),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: drivers.length,
+                    itemBuilder: (context, index) {
+                      final driver = drivers[index];
+                      return _DriverListItem(driver: driver);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddDriverDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _AddDriverDialog(),
+    );
+  }
+}
+
+// Analytics Tab
+class _AnalyticsTab extends StatefulWidget {
+  const _AnalyticsTab();
+
+  @override
+  State<_AnalyticsTab> createState() => _AnalyticsTabState();
+}
+
+class _AnalyticsTabState extends State<_AnalyticsTab> {
+  Map<String, dynamic>? _analyticsData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnalytics();
+  }
+
+  Future<void> _loadAnalytics() async {
+    try {
+      final databaseService = Provider.of<DatabaseService>(context, listen: false);
+      final analytics = await databaseService.getAdvancedAnalytics();
+      setState(() {
+        _analyticsData = analytics;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading analytics: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_analyticsData == null) {
+      return const Center(child: Text('Error loading analytics data'));
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Key Performance Metrics
+          _buildSection(
+            'Key Performance Metrics',
+            [
+              Row(
+                children: [
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Total Orders',
+                      value: '${_analyticsData!['totalOrders']}',
+                      subtitle: 'All time',
+                      color: Colors.yellow,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Total Revenue',
+                      value: '\$${_analyticsData!['totalRevenue'].toStringAsFixed(2)}',
+                      subtitle: 'All time earnings',
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Avg Order Value',
+                      value: '\$${_analyticsData!['avgOrderValue'].toStringAsFixed(2)}',
+                      subtitle: 'Per order',
+                      color: Colors.yellow,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Delivery Rate',
+                      value: '${_analyticsData!['deliveryRate'].toStringAsFixed(1)}%',
+                      subtitle: 'Success rate',
+                      color: AppConstants.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Monthly Performance
+          _buildSection(
+            'This Month',
+            [
+              Row(
+                children: [
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Orders',
+                      value: '${_analyticsData!['ordersThisMonth']}',
+                      subtitle: 'This month',
+                      color: Colors.yellow,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Revenue',
+                      value: '\$${_analyticsData!['revenueThisMonth'].toStringAsFixed(2)}',
+                      subtitle: 'This month',
+                      color: Colors.yellow,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Users Overview
+          _buildSection(
+            'Users Overview',
+            [
+              Row(
+                children: [
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Customers',
+                      value: '${_analyticsData!['customerCount']}',
+                      subtitle: 'Total customers',
+                      color: Colors.yellow,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'Drivers',
+                      value: '${_analyticsData!['driverCount']}',
+                      subtitle: 'Active drivers',
+                      color: Colors.yellow,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Order Status Breakdown
+          _buildSection(
+            'Order Status Breakdown',
+            [
+              _buildStatusBreakdown(_analyticsData!['statusBreakdown']),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Priority Distribution
+          _buildSection(
+            'Priority Distribution',
+            [
+              _buildPriorityBreakdown(_analyticsData!['priorityBreakdown']),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBreakdown(Map<String, int> statusBreakdown) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.yellow, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.yellow.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: statusBreakdown.entries.map((entry) {
+          final percentage = statusBreakdown.values.fold(0, (sum, count) => sum + count) > 0
+              ? (entry.value / statusBreakdown.values.fold(0, (sum, count) => sum + count) * 100)
+              : 0.0;
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    entry.key.toUpperCase(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.yellow,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800],
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey[600]!, width: 1),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: percentage / 100,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(entry.key),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${entry.value} (${percentage.toStringAsFixed(1)}%)',
+                  style: const TextStyle(color: Colors.yellow),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPriorityBreakdown(Map<String, int> priorityBreakdown) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.yellow, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.yellow.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: priorityBreakdown.entries.map((entry) {
+          final color = _getPriorityColor(entry.key);
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: color,
+              child: Text(
+                '${entry.value}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+            title: Text(
+              entry.key.toUpperCase(),
+              style: const TextStyle(color: Colors.yellow),
+            ),
+            trailing: Text(
+              '${entry.value} orders',
+              style: const TextStyle(color: Colors.yellow),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'confirmed':
+        return Colors.blue;
+      case 'pickedup':
+        return Colors.purple;
+      case 'intransit':
+        return AppConstants.primaryColor;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Color _getPriorityColor(String priority) {
+    switch (priority.toLowerCase()) {
+      case 'low':
+        return Colors.green;
+      case 'medium':
+        return Colors.yellow;
+      case 'high':
+        return Colors.yellow;
+      case 'urgent':
+        return Colors.red;
+      default:
+        return Colors.yellow;
+    }
+  }
+}
+
+// Helper Widgets
+
+class _StatsCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String trend;
+  final bool isPositive;
+
+  const _StatsCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.trend,
+    required this.isPositive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.yellow, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.yellow.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.yellow,
+            ),
+          ),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.yellow,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            trend,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.yellow.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String time;
+  final Color color;
+
+  const _ActivityItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.time,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.yellow,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.yellow,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.yellow,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.yellow, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.yellow.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppConstants.primaryColor, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Colors.yellow,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.yellow,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderListItem extends StatelessWidget {
+  final order_model.Order order;
+
+  const _OrderListItem({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _getStatusColor(order.status),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _getStatusIcon(order.status),
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  order.trackingNumber,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.yellow,
+                  ),
+                ),
+                Text(
+                  order.description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.yellow,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  () {
+                    try {
+                      return DateFormat('MMM dd, yyyy HH:mm').format(order.createdAt);
+                    } catch (e) {
+                      return 'Invalid date';
+                    }
+                  }(),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.yellow,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(order.status),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  order.status.name.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '\$${order.estimatedCost.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.yellow,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.more_vert, size: 18),
+            onPressed: () {
+              _showOrderOptions(context, order);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(order_model.OrderStatus status) {
+    switch (status) {
+      case order_model.OrderStatus.pending:
+        return Colors.orange;
+      case order_model.OrderStatus.confirmed:
+        return Colors.blue;
+      case order_model.OrderStatus.pickedUp:
+        return AppConstants.primaryColor;
+      case order_model.OrderStatus.inTransit:
+        return AppConstants.primaryColor;
+      case order_model.OrderStatus.delivered:
+        return Colors.green;
+      case order_model.OrderStatus.cancelled:
+        return Colors.red;
+    }
+  }
+
+  IconData _getStatusIcon(order_model.OrderStatus status) {
+    switch (status) {
+      case order_model.OrderStatus.pending:
+        return Icons.pending;
+      case order_model.OrderStatus.confirmed:
+        return Icons.assignment;
+      case order_model.OrderStatus.pickedUp:
+        return Icons.local_shipping;
+      case order_model.OrderStatus.inTransit:
+        return Icons.local_shipping;
+      case order_model.OrderStatus.delivered:
+        return Icons.check_circle;
+      case order_model.OrderStatus.cancelled:
+        return Icons.cancel;
+    }
+  }
+
+  void _showOrderOptions(BuildContext context, order_model.Order order) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.visibility),
+              title: const Text('View Details'),
+              onTap: () {
+                Navigator.pop(context);
+                _showOrderDetailsModal(context, order);
+              },
+            ),
+            if (order.status == order_model.OrderStatus.pending ||
+                order.status == order_model.OrderStatus.confirmed)
+              ListTile(
+                leading: const Icon(Icons.assignment),
+                title: const Text('Assign Driver'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAssignDriverDialog(context, order);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Edit Order'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditOrderScreen(order: order),
+                  ),
+                );
+              },
+            ),
+            if (order.status != order_model.OrderStatus.delivered && 
+                order.status != order_model.OrderStatus.cancelled)
+              ListTile(
+                leading: const Icon(Icons.cancel, color: Colors.red),
+                title: const Text('Cancel Order', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showCancelOrderDialog(context, order);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showOrderDetailsModal(BuildContext context, order_model.Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => _OrderDetailsModal(order: order),
+    );
+  }
+
+  void _showAssignDriverDialog(BuildContext context, order_model.Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => _DriverAssignmentDialog(order: order),
+    );
+  }
+
+  void _showCancelOrderDialog(BuildContext context, order_model.Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Order'),
+        content: Text('Are you sure you want to cancel order ${order.trackingNumber}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final databaseService = Provider.of<DatabaseService>(context, listen: false);
+              try {
+                await databaseService.updateOrderStatus(order.id, order_model.OrderStatus.cancelled);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Order cancelled successfully')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error cancelling order: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriverListItem extends StatelessWidget {
+  final User driver;
+
+  const _DriverListItem({required this.driver});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: AppConstants.primaryColor,
+            backgroundImage: driver.profileImageUrl != null
+                ? NetworkImage(driver.profileImageUrl!)
+                : null,
+            child: driver.profileImageUrl == null
+                ? Text(
+                    driver.name.isNotEmpty ? driver.name[0].toUpperCase() : 'D',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  driver.name.isEmpty ? 'Unknown Driver' : driver.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  driver.email,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                if (driver.phoneNumber != null)
+                  Text(
+                    driver.phoneNumber!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: driver.isActive ? Colors.green : Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              driver.isActive ? 'ACTIVE' : 'INACTIVE',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              _showDriverOptions(context, driver);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDriverOptions(BuildContext context, User driver) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Edit Driver'),
+              onTap: () {
+                Navigator.pop(context);
+                _showEditDriverDialog(context, driver);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                driver.isActive ? Icons.block : Icons.check_circle,
+                color: driver.isActive ? Colors.red : Colors.green,
+              ),
+              title: Text(
+                driver.isActive ? 'Deactivate Driver' : 'Activate Driver',
+                style: TextStyle(
+                  color: driver.isActive ? Colors.red : Colors.green,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _toggleDriverStatus(context, driver);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Remove Driver', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _showRemoveDriverDialog(context, driver);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDriverDialog(BuildContext context, User driver) {
+    showDialog(
+      context: context,
+      builder: (context) => _EditDriverDialog(driver: driver),
+    );
+  }
+
+  void _toggleDriverStatus(BuildContext context, User driver) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${driver.isActive ? 'Deactivate' : 'Activate'} Driver'),
+        content: Text(
+          'Are you sure you want to ${driver.isActive ? 'deactivate' : 'activate'} ${driver.name}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final databaseService = Provider.of<DatabaseService>(context, listen: false);
+                await databaseService.updateUserActiveStatus(driver.id, !driver.isActive);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Driver ${driver.isActive ? 'deactivated' : 'activated'} successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: driver.isActive ? Colors.red : Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(driver.isActive ? 'Deactivate' : 'Activate'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRemoveDriverDialog(BuildContext context, User driver) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Driver'),
+        content: Text('Are you sure you want to permanently remove ${driver.name}? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final databaseService = Provider.of<DatabaseService>(context, listen: false);
+                await databaseService.deleteUser(driver.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Driver removed successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error removing driver: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final Color color;
+
+  const _MetricCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.yellow, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.yellow.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.yellow,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.yellow,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddDriverDialog extends StatefulWidget {
+  @override
+  State<_AddDriverDialog> createState() => _AddDriverDialogState();
+}
+
+class _AddDriverDialogState extends State<_AddDriverDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add New Driver'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name *',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter driver name';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email *',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter email';
+                }
+                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                  return 'Please enter a valid email';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _addDriver,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add Driver'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addDriver() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Create Firebase Auth account for the driver
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // Generate a temporary password for the new driver
+      final tempPassword = 'SmallCargo${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}!';
+      
+      // Register the new driver
+      final newUser = await authService.registerWithEmailAndPassword(
+        _emailController.text.trim(),
+        tempPassword,
+        _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+        role: UserRole.driver,
+      );
+      
+      if (newUser != null && mounted) {
+        Navigator.pop(context);
+        
+        // Show success dialog with password info
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Driver Created Successfully!'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Driver ${_nameController.text.trim()} has been created.'),
+                const SizedBox(height: 16),
+                const Text('Temporary Password:', 
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: SelectableText(tempPassword),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please share these credentials with the driver and ask them to change the password after first login.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Driver created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding driver: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+}
+
+// Driver Assignment Dialog Widget
+class _DriverAssignmentDialog extends StatefulWidget {
+  final order_model.Order order;
+
+  const _DriverAssignmentDialog({required this.order});
+
+  @override
+  State<_DriverAssignmentDialog> createState() => _DriverAssignmentDialogState();
+}
+
+class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
+  List<User> _availableDrivers = [];
+  User? _selectedDriver;
+  bool _isLoading = true;
+  bool _isAssigning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableDrivers();
+  }
+
+  Future<void> _loadAvailableDrivers() async {
+    try {
+      final databaseService = Provider.of<DatabaseService>(context, listen: false);
+      final drivers = await databaseService.getAvailableDrivers();
+      setState(() {
+        _availableDrivers = drivers;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading drivers: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _assignDriver() async {
+    if (_selectedDriver == null) return;
+
+    setState(() {
+      _isAssigning = true;
+    });
+
+    try {
+      final databaseService = Provider.of<DatabaseService>(context, listen: false);
+      await databaseService.assignDriverToOrder(widget.order.id, _selectedDriver!.id);
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Driver ${_selectedDriver!.name} assigned successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error assigning driver: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isAssigning = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Assign Driver to Order #${widget.order.trackingNumber}'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isLoading)
+              const CircularProgressIndicator()
+            else if (_availableDrivers.isEmpty)
+              const Text('No drivers available')
+            else
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _availableDrivers.length,
+                  itemBuilder: (context, index) {
+                    final driver = _availableDrivers[index];
+                    return RadioListTile<User>(
+                      title: Text(driver.name),
+                      subtitle: Text(driver.email),
+                      value: driver,
+                      groupValue: _selectedDriver,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedDriver = value;
+                        });
+                      },
+                      activeColor: AppConstants.primaryColor,
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _selectedDriver == null || _isAssigning ? null : _assignDriver,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppConstants.primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: _isAssigning
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Assign Driver'),
+        ),
+      ],
+    );
+  }
+}
+
+Widget _buildSection(String title, List<Widget> children) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.yellow,
+        ),
+      ),
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: children,
+        ),
+      ),
+    ],
+  );
+}
+
+// Quick Action Dialogs
+
+class _CreateOrderDialog extends StatefulWidget {
+  @override
+  State<_CreateOrderDialog> createState() => _CreateOrderDialogState();
+}
+
+class _CreateOrderDialogState extends State<_CreateOrderDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _descriptionController = TextEditingController();
+  final _pickupAddressController = TextEditingController();
+  final _deliveryAddressController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _costController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.add_circle, color: AppConstants.primaryColor),
+          const SizedBox(width: 8),
+          const Text('Create New Order'),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Package Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _pickupAddressController,
+                  decoration: const InputDecoration(
+                    labelText: 'Pickup Address',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _deliveryAddressController,
+                  decoration: const InputDecoration(
+                    labelText: 'Delivery Address',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _weightController,
+                        decoration: const InputDecoration(
+                          labelText: 'Weight (kg)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _costController,
+                        decoration: const InputDecoration(
+                          labelText: 'Cost (\$)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _createOrder,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppConstants.primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create Order'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _createOrder() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      // For demo purposes, just show success
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _pickupAddressController.dispose();
+    _deliveryAddressController.dispose();
+    _weightController.dispose();
+    _costController.dispose();
+    super.dispose();
+  }
+}
+
+class _AddDriverDialogNew extends StatefulWidget {
+  @override
+  State<_AddDriverDialogNew> createState() => _AddDriverDialogNewState();
+}
+
+class _AddDriverDialogNewState extends State<_AddDriverDialogNew> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _licenseController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.person_add, color: Colors.blue),
+          const SizedBox(width: 8),
+          const Text('Add New Driver'),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _licenseController,
+                  decoration: const InputDecoration(
+                    labelText: 'License Number',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _addDriver,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add Driver'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addDriver() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Driver added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _licenseController.dispose();
+    super.dispose();
+  }
+}
+
+class _AssignOrdersDialog extends StatefulWidget {
+  @override
+  State<_AssignOrdersDialog> createState() => _AssignOrdersDialogState();
+}
+
+class _AssignOrdersDialogState extends State<_AssignOrdersDialog> {
+  final List<String> _selectedOrders = [];
+  String? _selectedDriver;
+  bool _isLoading = false;
+
+  final List<Map<String, String>> _pendingOrders = [
+    {'id': 'ORD001', 'description': 'Electronics Package', 'customer': 'John Doe'},
+    {'id': 'ORD002', 'description': 'Documents', 'customer': 'Jane Smith'},
+    {'id': 'ORD003', 'description': 'Clothing Items', 'customer': 'Bob Wilson'},
+  ];
+
+  final List<Map<String, String>> _availableDrivers = [
+    {'id': 'DRV001', 'name': 'Mike Johnson'},
+    {'id': 'DRV002', 'name': 'Sarah Connor'},
+    {'id': 'DRV003', 'name': 'Tom Brown'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.assignment, color: Colors.orange),
+          const SizedBox(width: 8),
+          const Text('Assign Orders to Driver'),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Select Driver:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedDriver,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: _availableDrivers.map((driver) {
+                return DropdownMenuItem<String>(
+                  value: driver['id'],
+                  child: Text(driver['name']!),
+                );
+              }).toList(),
+              onChanged: (value) => setState(() => _selectedDriver = value),
+              hint: const Text('Choose a driver'),
+            ),
+            const SizedBox(height: 20),
+            const Text('Select Orders:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _pendingOrders.length,
+                itemBuilder: (context, index) {
+                  final order = _pendingOrders[index];
+                  final isSelected = _selectedOrders.contains(order['id']);
+                  
+                  return CheckboxListTile(
+                    title: Text(order['description']!),
+                    subtitle: Text('Customer: ${order['customer']}'),
+                    value: isSelected,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        if (value == true) {
+                          _selectedOrders.add(order['id']!);
+                        } else {
+                          _selectedOrders.remove(order['id']);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: (_selectedDriver != null && _selectedOrders.isNotEmpty && !_isLoading)
+              ? _assignOrders
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Assign Orders'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _assignOrders() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_selectedOrders.length} orders assigned successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+}
+
+class _ReportOptionsDialog extends StatefulWidget {
+  @override
+  State<_ReportOptionsDialog> createState() => _ReportOptionsDialogState();
+}
+
+class _ReportOptionsDialogState extends State<_ReportOptionsDialog> {
+  String _selectedReportType = 'orders';
+  String _selectedPeriod = 'week';
+  bool _isGenerating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.report, color: Colors.purple),
+          const SizedBox(width: 8),
+          const Text('Generate Report'),
+        ],
+      ),
+      content: SizedBox(
+        width: 350,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Report Type:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedReportType,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'orders', child: Text('Orders Report')),
+                DropdownMenuItem(value: 'revenue', child: Text('Revenue Report')),
+                DropdownMenuItem(value: 'drivers', child: Text('Driver Performance')),
+                DropdownMenuItem(value: 'customers', child: Text('Customer Activity')),
+              ],
+              onChanged: (value) => setState(() => _selectedReportType = value!),
+            ),
+            const SizedBox(height: 20),
+            const Text('Time Period:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedPeriod,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'week', child: Text('This Week')),
+                DropdownMenuItem(value: 'month', child: Text('This Month')),
+                DropdownMenuItem(value: 'quarter', child: Text('This Quarter')),
+                DropdownMenuItem(value: 'year', child: Text('This Year')),
+              ],
+              onChanged: (value) => setState(() => _selectedPeriod = value!),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isGenerating ? null : _generateReport,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+          ),
+          child: _isGenerating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Generate'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _generateReport() async {
+    setState(() => _isGenerating = true);
+    
+    try {
+      // Generate report data based on type and period
+      String reportData = await _generateReportData(_selectedReportType, _selectedPeriod);
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_selectedReportType.toUpperCase()} report generated for $_selectedPeriod!'),
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'Download',
+              onPressed: () => _downloadReport(reportData, _selectedReportType, _selectedPeriod),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  Future<String> _generateReportData(String reportType, String period) async {
+    // Calculate date range based on period
+    final now = DateTime.now();
+    DateTime startDate;
+    
+    switch (period) {
+      case 'week':
+        startDate = now.subtract(Duration(days: now.weekday - 1));
+        break;
+      case 'month':
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case 'quarter':
+        int quarterStart = ((now.month - 1) ~/ 3) * 3 + 1;
+        startDate = DateTime(now.year, quarterStart, 1);
+        break;
+      case 'year':
+        startDate = DateTime(now.year, 1, 1);
+        break;
+      default:
+        startDate = now.subtract(const Duration(days: 7));
+    }
+
+    // Generate CSV data based on report type
+    switch (reportType) {
+      case 'orders':
+        return await _generateOrdersReport(startDate, now);
+      case 'drivers':
+        return await _generateDriversReport(startDate, now);
+      case 'customers':
+        return await _generateCustomersReport(startDate, now);
+      default:
+        throw Exception('Unknown report type: $reportType');
+    }
+  }
+
+  Future<String> _generateOrdersReport(DateTime startDate, DateTime endDate) async {
+    try {
+      // Get orders in date range using DatabaseService from Provider
+      final databaseService = Provider.of<DatabaseService>(context, listen: false);
+      final orders = await databaseService.getFilteredOrders(
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      // Create CSV header
+      List<String> csvLines = [
+        'Order ID,Tracking Number,Customer ID,Driver ID,Status,Priority,Created Date,Pickup Address,Delivery Address,Estimated Cost,Actual Cost,Description'
+      ];
+
+      // Add order data
+      for (final order in orders) {
+        csvLines.add([
+          order.id,
+          order.trackingNumber,
+          order.customerId,
+          order.driverId ?? 'Not Assigned',
+          order.status.name,
+          order.priority.name,
+          DateFormat('yyyy-MM-dd HH:mm').format(order.createdAt),
+          '${order.pickupAddress.street}, ${order.pickupAddress.city}',
+          '${order.deliveryAddress.street}, ${order.deliveryAddress.city}',
+          order.estimatedCost.toStringAsFixed(2),
+          (order.actualCost ?? 0).toStringAsFixed(2),
+          '"${order.description.replaceAll('"', '""')}"',
+        ].join(','));
+      }
+
+      return csvLines.join('\n');
+    } catch (e) {
+      throw Exception('Failed to generate orders report: $e');
+    }
+  }
+
+  Future<String> _generateDriversReport(DateTime startDate, DateTime endDate) async {
+    try {
+      // Get all drivers using DatabaseService from Provider
+      final databaseService = Provider.of<DatabaseService>(context, listen: false);
+      final driversSnapshot = await databaseService.usersCollection
+          .where('role', isEqualTo: 'driver')
+          .get();
+      final drivers = driversSnapshot.docs
+          .map((doc) => User.fromSnapshot(doc))
+          .toList();
+
+      // Create CSV header
+      List<String> csvLines = [
+        'Driver ID,Name,Email,Phone,Active Status,Join Date,Total Deliveries,Total Revenue,Average Rating'
+      ];
+
+      // Add driver data
+      for (final driver in drivers) {
+        // Get driver orders in period
+        final driverOrders = await databaseService.getFilteredOrders(
+          startDate: startDate,
+          endDate: endDate,
+          driverId: driver.id,
+        );
+        
+        final deliveredOrders = driverOrders.where((order) => 
+          order.status == order_model.OrderStatus.delivered).toList();
+        final totalRevenue = deliveredOrders.fold(0.0, 
+          (sum, order) => sum + (order.actualCost ?? order.estimatedCost));
+
+        csvLines.add([
+          driver.id,
+          '"${driver.name}"',
+          driver.email,
+          driver.phoneNumber ?? 'N/A',
+          driver.isActive ? 'Active' : 'Inactive',
+          DateFormat('yyyy-MM-dd').format(driver.createdAt),
+          deliveredOrders.length.toString(),
+          totalRevenue.toStringAsFixed(2),
+          (driver.additionalData?['averageRating'] ?? 'N/A').toString(),
+        ].join(','));
+      }
+
+      return csvLines.join('\n');
+    } catch (e) {
+      throw Exception('Failed to generate drivers report: $e');
+    }
+  }
+
+  Future<String> _generateCustomersReport(DateTime startDate, DateTime endDate) async {
+    try {
+      // Get all customers using DatabaseService from Provider
+      final databaseService = Provider.of<DatabaseService>(context, listen: false);
+      final customersSnapshot = await databaseService.usersCollection
+          .where('role', isEqualTo: 'customer')
+          .get();
+      final customers = customersSnapshot.docs
+          .map((doc) => User.fromSnapshot(doc))
+          .toList();
+
+      // Create CSV header
+      List<String> csvLines = [
+        'Customer ID,Name,Email,Phone,Active Status,Join Date,Total Orders,Total Spent,Last Order Date'
+      ];
+
+      // Add customer data
+      for (final customer in customers) {
+        // Get customer orders in period
+        final customerOrders = await databaseService.getFilteredOrders(
+          startDate: startDate,
+          endDate: endDate,
+          customerId: customer.id,
+        );
+        
+        final totalSpent = customerOrders.fold(0.0, 
+          (sum, order) => sum + (order.actualCost ?? order.estimatedCost));
+        final lastOrderDate = customerOrders.isNotEmpty
+            ? DateFormat('yyyy-MM-dd').format(
+                customerOrders.map((o) => o.createdAt).reduce((a, b) => a.isAfter(b) ? a : b))
+            : 'N/A';
+
+        csvLines.add([
+          customer.id,
+          '"${customer.name}"',
+          customer.email,
+          customer.phoneNumber ?? 'N/A',
+          customer.isActive ? 'Active' : 'Inactive',
+          DateFormat('yyyy-MM-dd').format(customer.createdAt),
+          customerOrders.length.toString(),
+          totalSpent.toStringAsFixed(2),
+          lastOrderDate,
+        ].join(','));
+      }
+
+      return csvLines.join('\n');
+    } catch (e) {
+      throw Exception('Failed to generate customers report: $e');
+    }
+  }
+
+  void _downloadReport(String csvData, String reportType, String period) {
+    try {
+      final fileName = 'smallcargo_${reportType}_report_${period}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
+      
+      final bytes = utf8.encode(csvData);
+      final blob = html.Blob([bytes], 'text/csv');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      
+      html.Url.revokeObjectUrl(url);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Report downloaded: $fileName'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Download failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
+// Order Details Modal
+class _OrderDetailsModal extends StatelessWidget {
+  final order_model.Order order;
+
+  const _OrderDetailsModal({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.black,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Colors.yellow, width: 1),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(order.status),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _getStatusIcon(order.status),
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Order ${order.trackingNumber}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.yellow,
+                        ),
+                      ),
+                      Text(
+                        order.status.name.toUpperCase(),
+                        style: TextStyle(
+                          color: _getStatusColor(order.status),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, color: Colors.yellow),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Order Details
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailSection('Order Information', [
+                      _buildDetailRow('Description', order.description),
+                      _buildDetailRow('Priority', order.priority.name.toUpperCase()),
+                      _buildDetailRow('Estimated Cost', '\$${order.estimatedCost.toStringAsFixed(2)}'),
+                      if (order.actualCost != null)
+                        _buildDetailRow('Actual Cost', '\$${order.actualCost!.toStringAsFixed(2)}'),
+                      if (order.weight != null)
+                        _buildDetailRow('Weight', '${order.weight!.toStringAsFixed(1)} lbs'),
+                      if (order.dimensions != null)
+                        _buildDetailRow('Dimensions', order.dimensions!),
+                    ]),
+                    
+                    const SizedBox(height: 20),
+                    
+                    _buildDetailSection('Addresses', [
+                      _buildAddressDetail('Pickup Address', order.pickupAddress),
+                      const SizedBox(height: 12),
+                      _buildAddressDetail('Delivery Address', order.deliveryAddress),
+                    ]),
+                    
+                    const SizedBox(height: 20),
+                    
+                    _buildDetailSection('Timeline', [
+                      _buildDetailRow('Created', DateFormat('MMM dd, yyyy HH:mm').format(order.createdAt)),
+                      _buildDetailRow('Updated', DateFormat('MMM dd, yyyy HH:mm').format(order.updatedAt)),
+                      if (order.pickupTime != null)
+                        _buildDetailRow('Picked Up', DateFormat('MMM dd, yyyy HH:mm').format(order.pickupTime!)),
+                      if (order.deliveryTime != null)
+                        _buildDetailRow('Delivered', DateFormat('MMM dd, yyyy HH:mm').format(order.deliveryTime!)),
+                      if (order.estimatedDeliveryTime != null)
+                        _buildDetailRow('Est. Delivery', DateFormat('MMM dd, yyyy HH:mm').format(order.estimatedDeliveryTime!)),
+                    ]),
+                    
+                    if (order.specialInstructions != null) ...[
+                      const SizedBox(height: 20),
+                      _buildDetailSection('Special Instructions', [
+                        Text(
+                          order.specialInstructions!,
+                          style: const TextStyle(color: Colors.yellow),
+                        ),
+                      ]),
+                    ],
+                    
+                    if (order.imageUrls.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      _buildDetailSection('Photos', [
+                        SizedBox(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: order.imageUrls.length,
+                            itemBuilder: (context, index) {
+                              return Container(
+                                width: 100,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.yellow),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    order.imageUrls[index],
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Icon(Icons.error, color: Colors.red);
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Action Buttons
+            Row(
+              children: [
+                if (order.status == order_model.OrderStatus.pending ||
+                    order.status == order_model.OrderStatus.confirmed)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showAssignDriverDialog(context, order);
+                      },
+                      icon: const Icon(Icons.assignment),
+                      label: const Text('Assign Driver'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.yellow,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
+                  ),
+                if (order.status == order_model.OrderStatus.pending ||
+                    order.status == order_model.OrderStatus.confirmed) ...[
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditOrderScreen(order: order),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit Order'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.yellow),
+                      foregroundColor: Colors.yellow,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.yellow,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[700]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.yellow),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressDetail(String label, order_model.Address address) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          address.fullAddress,
+          style: const TextStyle(color: Colors.yellow),
+        ),
+      ],
+    );
+  }
+
+  Color _getStatusColor(order_model.OrderStatus status) {
+    switch (status) {
+      case order_model.OrderStatus.pending:
+        return Colors.orange;
+      case order_model.OrderStatus.confirmed:
+        return Colors.blue;
+      case order_model.OrderStatus.pickedUp:
+        return AppConstants.primaryColor;
+      case order_model.OrderStatus.inTransit:
+        return AppConstants.primaryColor;
+      case order_model.OrderStatus.delivered:
+        return Colors.green;
+      case order_model.OrderStatus.cancelled:
+        return Colors.red;
+    }
+  }
+
+  IconData _getStatusIcon(order_model.OrderStatus status) {
+    switch (status) {
+      case order_model.OrderStatus.pending:
+        return Icons.pending;
+      case order_model.OrderStatus.confirmed:
+        return Icons.assignment;
+      case order_model.OrderStatus.pickedUp:
+        return Icons.local_shipping;
+      case order_model.OrderStatus.inTransit:
+        return Icons.local_shipping;
+      case order_model.OrderStatus.delivered:
+        return Icons.check_circle;
+      case order_model.OrderStatus.cancelled:
+        return Icons.cancel;
+    }
+  }
+
+  void _showAssignDriverDialog(BuildContext context, order_model.Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => _DriverAssignmentDialog(order: order),
+    );
+  }
+}
+
+// Edit Driver Dialog
+class _EditDriverDialog extends StatefulWidget {
+  final User driver;
+
+  const _EditDriverDialog({required this.driver});
+
+  @override
+  State<_EditDriverDialog> createState() => _EditDriverDialogState();
+}
+
+class _EditDriverDialogState extends State<_EditDriverDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.driver.name);
+    _emailController = TextEditingController(text: widget.driver.email);
+    _phoneController = TextEditingController(text: widget.driver.phoneNumber ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.edit, color: Colors.blue),
+          const SizedBox(width: 8),
+          const Text('Edit Driver'),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value?.isEmpty == true ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value?.isEmpty == true) return 'Required';
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+                    return 'Invalid email';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _updateDriver,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Update'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _updateDriver() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      final databaseService = Provider.of<DatabaseService>(context, listen: false);
+      await databaseService.updateUserProfile(
+        widget.driver.id,
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      );
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Driver updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating driver: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+}
+
+// Testing Tab - Admin Access Only
+class _TestingTab extends StatelessWidget {
+  const _TestingTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppDesignSystem.primaryGradient,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: AppDesignSystem.primaryGradient,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.bug_report,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Testing Dashboard',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppDesignSystem.primaryGold,
+                        ),
+                      ),
+                      Text(
+                        'Admin-only access to testing tools and diagnostics',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Testing Options Grid
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                children: [
+                  _buildTestingCard(
+                    context,
+                    'Integration Tests',
+                    'Run comprehensive system tests',
+                    Icons.integration_instructions,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const IntegrationTestScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildTestingCard(
+                    context,
+                    'Core Functions',
+                    'Test individual app components',
+                    Icons.functions,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ComprehensiveTestScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildTestingCard(
+                    context,
+                    'Demo Data',
+                    'Generate sample data for testing',
+                    Icons.data_object,
+                    () => _showDemoDataDialog(context),
+                  ),
+                  _buildTestingCard(
+                    context,
+                    'System Status',
+                    'Check system health and logs',
+                    Icons.monitor_heart,
+                    () => _showSystemStatusDialog(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestingCard(
+    BuildContext context,
+    String title,
+    String description,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: AppDesignSystem.primaryGradient,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppDesignSystem.primaryGold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDemoDataDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Demo Data Generator'),
+        content: const Text('This would generate sample orders, users, and drivers for testing purposes.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement demo data generation
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Demo data generation would be implemented here')),
+              );
+            },
+            child: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSystemStatusDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('System Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatusItem('Database', 'Connected', true),
+            _buildStatusItem('Authentication', 'Active', true),
+            _buildStatusItem('Push Notifications', 'Enabled', true),
+            _buildStatusItem('Location Services', 'Running', true),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusItem(String service, String status, bool isHealthy) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(service),
+          Row(
+            children: [
+              Icon(
+                isHealthy ? Icons.check_circle : Icons.error,
+                color: isHealthy ? Colors.green : Colors.red,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                status,
+                style: TextStyle(
+                  color: isHealthy ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

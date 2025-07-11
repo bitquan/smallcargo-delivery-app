@@ -15,6 +15,9 @@ import 'services/emergency_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/testing/integration_test_screen.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
+import 'comprehensive_test_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,13 +52,15 @@ class SmallCargoApp extends StatelessWidget {
       child: MaterialApp(
         title: AppConstants.appName,
         theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        themeMode: ThemeMode.light, // Force light theme (which is our black theme)
         debugShowCheckedModeBanner: false,
         home: const AuthWrapper(),
         routes: {
           AppConstants.homeRoute: (context) => const HomeScreen(),
           AppConstants.loginRoute: (context) => const LoginScreen(),
+          '/integration-test': (context) => const IntegrationTestScreen(),
+          '/admin-dashboard': (context) => const AdminDashboardScreen(),
+          '/comprehensive-test': (context) => const ComprehensiveTestScreen(),
         },
       ),
     );

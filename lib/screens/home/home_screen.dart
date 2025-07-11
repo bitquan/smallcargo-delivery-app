@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_constants.dart';
+import '../../core/design_system/app_design_system.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../models/order.dart' as order_model;
 import '../../models/user.dart';
-import '../../widgets/common_widgets.dart';
 import '../orders/create_order_screen.dart';
 import '../tracking/tracking_screen.dart';
-import '../profile/user_profile_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../driver/driver_dashboard_screen.dart';
 
@@ -28,9 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
       stream: Provider.of<AuthService>(context, listen: false).authStateChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
+          return Scaffold(
+            backgroundColor: AppDesignSystem.backgroundDark,
+            body: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppDesignSystem.primaryGold),
+              ),
             ),
           );
         }
@@ -48,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         
         final List<Widget> screens = [
-          const DashboardTab(),
+          DashboardTab(user: user),
           OrdersTab(onNavigateToTracking: () {
             setState(() {
               _currentIndex = 2;
@@ -59,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ];
 
         return Scaffold(
+          backgroundColor: AppDesignSystem.backgroundDark,
           body: screens[_currentIndex],
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _currentIndex,
@@ -68,6 +70,9 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
             type: BottomNavigationBarType.fixed,
+            backgroundColor: AppDesignSystem.backgroundCard,
+            selectedItemColor: AppDesignSystem.primaryGold,
+            unselectedItemColor: AppDesignSystem.textMuted,
             items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.dashboard),
@@ -94,15 +99,14 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class DashboardTab extends StatelessWidget {
-  const DashboardTab({super.key});
+  final User? user;
+  
+  const DashboardTab({super.key, this.user});
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    final user = authService.currentUser;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Light gray background
+      backgroundColor: AppDesignSystem.backgroundDark,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -117,32 +121,33 @@ class DashboardTab extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          width: 40,
+                          height: 40,
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: AppConstants.primaryColor,
+                            color: AppDesignSystem.primaryGold,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Image.network(
-                            'https://via.placeholder.com/100x100/FFEB3B/000000?text=SC',
-                            width: 24,
-                            height: 24,
-                            color: Colors.white,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.local_shipping,
-                                color: Colors.white,
-                                size: 24,
-                              );
-                            },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.local_shipping,
+                                  color: AppDesignSystem.backgroundDark,
+                                  size: 24,
+                                );
+                              },
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'Small Cargo',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                          style: AppDesignSystem.headlineMedium.copyWith(
+                            color: AppDesignSystem.primaryGold,
                           ),
                         ),
                       ],
@@ -150,7 +155,7 @@ class DashboardTab extends StatelessWidget {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.notifications_outlined),
+                          icon: const Icon(Icons.notifications_outlined, color: AppDesignSystem.primaryGold),
                           onPressed: () {},
                         ),
                         GestureDetector(
@@ -159,7 +164,7 @@ class DashboardTab extends StatelessWidget {
                             await authService.signOut();
                           },
                           child: CircleAvatar(
-                            backgroundColor: AppConstants.accentColor,
+                            backgroundColor: AppDesignSystem.accentBlue,
                             child: Text(
                               user?.name.substring(0, 1).toUpperCase() ?? 'U',
                               style: const TextStyle(
@@ -181,15 +186,11 @@ class DashboardTab extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppConstants.primaryColor, AppConstants.accentColor],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    gradient: AppDesignSystem.primaryGradient,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: AppConstants.primaryColor.withValues(alpha: 0.3),
+                        color: AppDesignSystem.primaryGold.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -198,53 +199,18 @@ class DashboardTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.local_shipping,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Welcome back!',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  user?.name ?? 'User',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Welcome back, ${user?.name ?? 'User'}!',
+                        style: AppDesignSystem.headlineMedium.copyWith(
+                          color: AppDesignSystem.backgroundDark,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'Reliable and affordable logistics solutions for all your shipping needs.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                          height: 1.4,
+                        style: AppDesignSystem.bodyLarge.copyWith(
+                          color: AppDesignSystem.backgroundDark.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
@@ -254,12 +220,10 @@ class DashboardTab extends StatelessWidget {
                 const SizedBox(height: 30),
                 
                 // Quick Actions
-                const Text(
+                Text(
                   'Quick Actions',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                  style: AppDesignSystem.headlineSmall.copyWith(
+                    color: AppDesignSystem.primaryGold,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -268,10 +232,11 @@ class DashboardTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _buildQuickActionCard(
+                        context,
                         icon: Icons.add_box,
                         title: 'Ship Now',
                         subtitle: 'Create new order',
-                        color: AppConstants.primaryColor,
+                        color: AppDesignSystem.primaryGold,
                         onTap: () {
                           Navigator.push(
                             context,
@@ -285,10 +250,11 @@ class DashboardTab extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildQuickActionCard(
+                        context,
                         icon: Icons.track_changes,
                         title: 'Track',
                         subtitle: 'Follow your package',
-                        color: AppConstants.accentColor,
+                        color: AppDesignSystem.accentBlue,
                         onTap: () {
                           Navigator.push(
                             context,
@@ -308,24 +274,26 @@ class DashboardTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _buildQuickActionCard(
+                        context,
                         icon: Icons.history,
                         title: 'History',
                         subtitle: 'View past orders',
-                        color: const Color(0xFF8E24AA),
+                        color: AppDesignSystem.accentPurple,
                         onTap: () {
-                          // Navigate to orders tab - you'll need to implement this
+                          // Navigate to orders tab
                         },
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildQuickActionCard(
+                        context,
                         icon: Icons.support_agent,
                         title: 'Support',
                         subtitle: 'Get help',
-                        color: const Color(0xFFE65100),
+                        color: AppDesignSystem.accentOrange,
                         onTap: () {
-                          // Navigate to support - you'll need to implement this
+                          // Navigate to support
                         },
                       ),
                     ),
@@ -334,13 +302,37 @@ class DashboardTab extends StatelessWidget {
                 
                 const SizedBox(height: 30),
                 
+                // Admin Row (only for admins)
+                if (user?.role == UserRole.admin) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickActionCard(
+                          context,
+                          icon: Icons.admin_panel_settings,
+                          title: 'Admin Panel',
+                          subtitle: 'Admin dashboard',
+                          color: AppDesignSystem.textMuted,
+                          onTap: () {
+                            Navigator.pushNamed(context, '/admin-dashboard');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(), // Empty space
+                      ),
+                    ],
+                  ),
+                ],
+                
+                const SizedBox(height: 30),
+                
                 // Recent Orders
-                const Text(
+                Text(
                   'Recent Orders',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                  style: AppDesignSystem.headlineSmall.copyWith(
+                    color: AppDesignSystem.primaryGold,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -348,11 +340,12 @@ class DashboardTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppDesignSystem.backgroundCard,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppDesignSystem.primaryGold, width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
+                        color: AppDesignSystem.primaryGold.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -365,7 +358,9 @@ class DashboardTab extends StatelessWidget {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(20),
-                            child: CircularProgressIndicator(),
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(AppDesignSystem.primaryGold),
+                            ),
                           ),
                         );
                       }
@@ -376,30 +371,28 @@ class DashboardTab extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
-                                color: Colors.grey[50],
+                                color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Column(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.inbox_outlined,
                                     size: 48,
-                                    color: Colors.grey[400],
+                                    color: AppDesignSystem.primaryGold,
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
                                     'No orders yet',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey[600],
+                                    style: AppDesignSystem.headlineSmall.copyWith(
+                                      color: AppDesignSystem.primaryGold,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Create your first shipment to get started',
-                                    style: TextStyle(
-                                      color: Colors.grey[500],
+                                    'Create your first order to get started with our delivery service.',
+                                    style: AppDesignSystem.bodyMedium.copyWith(
+                                      color: AppDesignSystem.textSecondary,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -414,17 +407,14 @@ class DashboardTab extends StatelessWidget {
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppConstants.primaryColor,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
+                                      backgroundColor: AppDesignSystem.primaryGold,
+                                      foregroundColor: AppDesignSystem.backgroundDark,
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(25),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    child: const Text('Create Order'),
+                                    child: const Text('Create First Order'),
                                   ),
                                 ],
                               ),
@@ -434,207 +424,66 @@ class DashboardTab extends StatelessWidget {
                       }
 
                       return Column(
-                        children: [
-                          ...snapshot.data!.take(3).map((order) {
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.grey[200]!,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: AppConstants.primaryColor.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      Icons.local_shipping,
-                                      color: AppConstants.primaryColor,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Order #${order.trackingNumber}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          order.description,
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 14,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _getStatusColor(order.status).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            order.status.name.toUpperCase(),
-                                            style: TextStyle(
-                                              color: _getStatusColor(order.status),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.arrow_forward_ios,
-                                    size: 16,
-                                    color: Colors.grey[400],
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                          if (snapshot.data!.length > 3) ...[
-                            const SizedBox(height: 16),
-                            TextButton(
-                              onPressed: () {
-                                // Navigate to full orders list
-                              },
-                              child: Text(
-                                'View All Orders (${snapshot.data!.length})',
-                                style: TextStyle(
-                                  color: AppConstants.primaryColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                        children: snapshot.data!.take(3).map((order) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppDesignSystem.backgroundSurface,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
-                        ],
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.local_shipping,
+                                  color: AppDesignSystem.primaryGold,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Order #${order.id.substring(0, 8)}',
+                                        style: AppDesignSystem.bodyLarge.copyWith(
+                                          color: AppDesignSystem.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        order.status.toString().split('.').last,
+                                        style: AppDesignSystem.bodySmall.copyWith(
+                                          color: AppDesignSystem.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.arrow_forward_ios,
+                                    color: AppDesignSystem.textMuted,
+                                    size: 16,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const TrackingScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       );
                     },
                   ),
                 ),
                 
                 const SizedBox(height: 30),
-                
-                // Track Package Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppConstants.accentColor,
-                        AppConstants.accentColor.withValues(alpha: 0.8),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppConstants.accentColor.withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.track_changes,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Track your package',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Enter the tracking number to get real-time information',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const TrackingScreen(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          child: const Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Enter tracking number...',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                Icons.search,
-                                color: Colors.grey,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -643,24 +492,8 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(order_model.OrderStatus status) {
-    switch (status) {
-      case order_model.OrderStatus.pending:
-        return Colors.orange;
-      case order_model.OrderStatus.confirmed:
-        return Colors.blue;
-      case order_model.OrderStatus.inTransit:
-        return AppConstants.primaryColor;
-      case order_model.OrderStatus.delivered:
-        return Colors.green;
-      case order_model.OrderStatus.cancelled:
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  Widget _buildQuickActionCard({
+  Widget _buildQuickActionCard(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
@@ -670,14 +503,18 @@ class DashboardTab extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppDesignSystem.backgroundCard,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color.withValues(alpha: 0.3),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 10,
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
@@ -689,7 +526,7 @@ class DashboardTab extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 icon,
@@ -697,21 +534,19 @@ class DashboardTab extends StatelessWidget {
                 size: 24,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 16,
+              style: AppDesignSystem.bodyLarge.copyWith(
+                color: AppDesignSystem.textPrimary,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
+              style: AppDesignSystem.bodySmall.copyWith(
+                color: AppDesignSystem.textSecondary,
               ),
             ),
           ],
@@ -721,215 +556,33 @@ class DashboardTab extends StatelessWidget {
   }
 }
 
-// OrdersTab and other components remain the same as before
-class OrdersTab extends StatefulWidget {
+class OrdersTab extends StatelessWidget {
   final VoidCallback onNavigateToTracking;
-
+  
   const OrdersTab({super.key, required this.onNavigateToTracking});
 
   @override
-  State<OrdersTab> createState() => _OrdersTabState();
-}
-
-class _OrdersTabState extends State<OrdersTab> {
-  String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Pending', 'In Transit', 'Delivered', 'Cancelled'];
-
-  @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    final user = authService.currentUser;
-
     return Scaffold(
-      backgroundColor: const Color(0xFF4DB6AC),
-      appBar: const GradientAppBar(
-        title: 'My Orders',
-      ),
-      body: Column(
-        children: [
-          // Filter chips
-          Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _filters.length,
-              itemBuilder: (context, index) {
-                final filter = _filters[index];
-                final isSelected = _selectedFilter == filter;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(filter),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedFilter = filter;
-                      });
-                    },
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    selectedColor: AppConstants.primaryColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                );
-              },
-            ),
+      backgroundColor: AppDesignSystem.backgroundDark,
+      appBar: AppBar(
+        title: Text(
+          'My Orders',
+          style: AppDesignSystem.headlineSmall.copyWith(
+            color: AppDesignSystem.textPrimary,
           ),
-          // Orders list
-          Expanded(
-            child: StreamBuilder<List<order_model.Order>>(
-              stream: DatabaseService().getUserOrders(user?.id ?? ''),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inbox_outlined,
-                          size: 64,
-                          color: Colors.white.withValues(alpha: 0.7),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No orders found',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Create your first order to get started',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                var filteredOrders = snapshot.data!;
-                if (_selectedFilter != 'All') {
-                  filteredOrders = filteredOrders.where((order) {
-                    return order.status.name.toLowerCase() == _selectedFilter.toLowerCase() ||
-                           (_selectedFilter == 'In Transit' && order.status == order_model.OrderStatus.inTransit);
-                  }).toList();
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredOrders.length,
-                  itemBuilder: (context, index) {
-                    final order = filteredOrders[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppConstants.primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.local_shipping,
-                            color: AppConstants.primaryColor,
-                          ),
-                        ),
-                        title: Text(
-                          'Order #${order.trackingNumber}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              order.description,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Status: ${order.status.name}',
-                              style: TextStyle(
-                                color: _getStatusColor(order.status),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Colors.grey[600],
-                        ),
-                        onTap: () {
-                          // Navigate to order details
-                          // TODO: Implement order details screen
-                        },
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+        ),
+        backgroundColor: AppDesignSystem.primaryGold,
+        foregroundColor: AppDesignSystem.backgroundDark,
+        elevation: 0,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateOrderScreen(),
-            ),
-          );
-        },
-        backgroundColor: AppConstants.primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
+      body: const Center(
+        child: Text(
+          'Orders will be listed here',
+          style: TextStyle(color: AppDesignSystem.textPrimary),
+        ),
       ),
     );
-  }
-
-  Color _getStatusColor(order_model.OrderStatus status) {
-    switch (status) {
-      case order_model.OrderStatus.pending:
-        return Colors.orange;
-      case order_model.OrderStatus.confirmed:
-        return Colors.blue;
-      case order_model.OrderStatus.inTransit:
-        return AppConstants.primaryColor;
-      case order_model.OrderStatus.delivered:
-        return Colors.green;
-      case order_model.OrderStatus.cancelled:
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 }
 
@@ -938,6 +591,25 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const UserProfileScreen();
+    return Scaffold(
+      backgroundColor: AppDesignSystem.backgroundDark,
+      appBar: AppBar(
+        title: Text(
+          'Profile',
+          style: AppDesignSystem.headlineSmall.copyWith(
+            color: AppDesignSystem.textPrimary,
+          ),
+        ),
+        backgroundColor: AppDesignSystem.primaryGold,
+        foregroundColor: AppDesignSystem.backgroundDark,
+        elevation: 0,
+      ),
+      body: const Center(
+        child: Text(
+          'Profile settings will be here',
+          style: TextStyle(color: AppDesignSystem.textPrimary),
+        ),
+      ),
+    );
   }
 }

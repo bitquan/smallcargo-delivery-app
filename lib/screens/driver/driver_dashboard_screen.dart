@@ -44,7 +44,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
     final user = authService.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Light gray background
+      backgroundColor: const Color.fromARGB(255, 0, 0, 0), // Light gray background
       body: SafeArea(
         child: Column(
           children: [
@@ -54,7 +54,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AppConstants.primaryColor, Color(0xFF2E7D32)],
+                  colors: [AppConstants.primaryColor, Colors.black],
                 ),
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(24),
@@ -130,8 +130,9 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: Colors.black,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.yellow, width: 1),
                       ),
                       child: Row(
                         children: [
@@ -146,14 +147,14 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: !_isOnline ? Colors.white : Colors.transparent,
+                                  color: !_isOnline ? Colors.red : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   'Offline',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: !_isOnline ? Colors.red : Colors.white,
+                                    color: !_isOnline ? Colors.white : Colors.yellow,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -171,14 +172,14 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: _isOnline ? Colors.white : Colors.transparent,
+                                  color: _isOnline ? Colors.green : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   'Online',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: _isOnline ? Colors.green : Colors.white,
+                                    color: _isOnline ? Colors.white : Colors.yellow,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -235,11 +236,12 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.black,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.yellow, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.yellow.withValues(alpha: 0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -248,12 +250,12 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  color: AppConstants.primaryColor,
+                  color: Colors.yellow,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 indicatorPadding: const EdgeInsets.all(4),
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey[600],
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.yellow,
                 labelStyle: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
@@ -289,11 +291,12 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.yellow, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.yellow.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -321,14 +324,14 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.yellow,
             ),
           ),
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: Colors.yellow,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -337,7 +340,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
             subtitle,
             style: TextStyle(
               fontSize: 10,
-              color: Colors.grey[500],
+              color: Colors.yellow.withOpacity(0.7),
             ),
           ),
         ],
@@ -363,6 +366,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: Colors.yellow,
                   ),
                 ),
               ),
@@ -377,13 +381,13 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                       _isFilterActive = false;
                     });
                   },
-                  child: const Text('Clear Filters'),
+                  child: const Text('Clear Filters', style: TextStyle(color: Colors.yellow)),
                 ),
               IconButton(
                 onPressed: () => _showFilterDialog(),
                 icon: Icon(
                   Icons.filter_list,
-                  color: _isFilterActive ? AppConstants.primaryColor : Colors.grey,
+                  color: _isFilterActive ? Colors.yellow : Colors.yellow.withOpacity(0.7),
                 ),
               ),
             ],
@@ -413,12 +417,16 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error, size: 64, color: Colors.red[300]),
+                Icon(Icons.error, size: 64, color: Colors.yellow),
                 const SizedBox(height: 16),
-                const Text('Error loading orders'),
+                const Text('Error loading orders', style: TextStyle(color: Colors.yellow)),
                 const SizedBox(height: 8),
                 ElevatedButton(
                   onPressed: () => setState(() {}),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.yellow,
+                    foregroundColor: Colors.black,
+                  ),
                   child: const Text('Retry'),
                 ),
               ],
@@ -433,13 +441,13 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.inbox, size: 64, color: Colors.grey),
+                Icon(Icons.inbox, size: 64, color: Colors.yellow),
                 SizedBox(height: 16),
                 Text('No available orders', 
-                     style: TextStyle(color: Colors.grey, fontSize: 16)),
+                     style: TextStyle(color: Colors.yellow, fontSize: 16)),
                 SizedBox(height: 8),
                 Text('Check back soon for new deliveries!',
-                     style: TextStyle(color: Colors.grey, fontSize: 14)),
+                     style: TextStyle(color: Colors.yellow, fontSize: 14)),
               ],
             ),
           );
@@ -612,11 +620,12 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.yellow, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.yellow.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -650,7 +659,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.green,
+                    color: Colors.yellow,
                   ),
                 ),
               ],
@@ -661,14 +670,15 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
+                color: Colors.yellow,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'To: ${order.deliveryAddress}',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: Colors.yellow,
               ),
             ),
             const SizedBox(height: 12),
@@ -682,26 +692,25 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                   ElevatedButton(
                     onPressed: () => _acceptOrder(order),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppConstants.primaryColor,
+                      backgroundColor: Colors.yellow,
+                      foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text('Accept', style: TextStyle(color: Colors.white)),
+                    child: const Text('Accept'),
                   )
                 else
                   ElevatedButton(
                     onPressed: () => _updateOrderStatus(order),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppConstants.secondaryColor,
+                      backgroundColor: Colors.yellow,
+                      foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: Text(
-                      _getNextStatusText(order.status),
-                      style: const TextStyle(color: Colors.white),
-                    ),
+                    child: Text(_getNextStatusText(order.status)),
                   ),
               ],
             ),
@@ -715,19 +724,20 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Colors.yellow.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.yellow.withOpacity(0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.grey[600]),
+          Icon(icon, size: 14, color: Colors.yellow),
           const SizedBox(width: 4),
           Text(
             text,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: Colors.yellow,
             ),
           ),
         ],
@@ -751,7 +761,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
     final user = authService.currentUser;
     
     if (user == null) {
-      return const Center(child: Text('Please log in to view analytics'));
+      return const Center(child: Text('Please log in to view analytics', style: TextStyle(color: Colors.yellow)));
     }
     
     return FutureBuilder<Map<String, dynamic>>(
@@ -766,9 +776,9 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error, size: 64, color: Colors.red[300]),
+                Icon(Icons.error, size: 64, color: Colors.yellow),
                 const SizedBox(height: 16),
-                Text('Error loading analytics: ${snapshot.error}'),
+                Text('Error loading analytics: ${snapshot.error}', style: const TextStyle(color: Colors.yellow)),
               ],
             ),
           );
@@ -787,7 +797,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Colors.yellow,
                 ),
               ),
               const SizedBox(height: 16),
@@ -799,7 +809,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                       'Total Deliveries',
                       '${analytics['totalDeliveries']}',
                       Icons.local_shipping,
-                      Colors.blue,
+                      Colors.yellow,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -823,7 +833,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                       'Avg Order Value',
                       '\$${analytics['avgOrderValue'].toStringAsFixed(2)}',
                       Icons.trending_up,
-                      Colors.orange,
+                      Colors.yellow,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -846,7 +856,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Colors.yellow,
                 ),
               ),
               const SizedBox(height: 16),
@@ -858,7 +868,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                       'Deliveries',
                       '${analytics['thisMonthDeliveries']}',
                       Icons.calendar_month,
-                      Colors.purple,
+                      Colors.yellow,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -867,7 +877,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                       'Earnings',
                       '\$${analytics['thisMonthEarnings'].toStringAsFixed(2)}',
                       Icons.account_balance_wallet,
-                      Colors.teal,
+                      Colors.yellow,
                     ),
                   ),
                 ],
@@ -881,7 +891,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Colors.yellow,
                 ),
               ),
               const SizedBox(height: 16),
@@ -893,7 +903,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                       'Orders (7 days)',
                       '${analytics['weeklyOrders']}',
                       Icons.assignment,
-                      Colors.indigo,
+                      Colors.yellow,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -933,11 +943,12 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.yellow, width: 1),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.1),
+            color: Colors.yellow.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -949,7 +960,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -960,15 +971,15 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.yellow,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: Colors.yellow,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -983,11 +994,12 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.yellow, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.yellow.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1015,6 +1027,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
+                      color: Colors.yellow,
                     ),
                   ),
                 ),
@@ -1022,7 +1035,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                   child: Container(
                     height: 20,
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
+                      color: Colors.grey[800],
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: FractionallySizedBox(
@@ -1043,6 +1056,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
                   style: const TextStyle(
                     fontWeight: FontWeight.w500,
                     fontSize: 12,
+                    color: Colors.white,
                   ),
                 ),
               ],

@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' as math;
-import '../../core/constants/app_constants.dart';
-import '../../core/constants/assets.dart';
-import '../../models/order.dart' as order_model;
-import '../../models/user.dart';
+import '../../core/design_system/app_design_system.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
-import '../../widgets/common_widgets.dart';
-import '../orders/edit_order_screen.dart';
-import 'package:intl/intl.dart';
+import '../../services/pricing_service.dart';
+import '../testing/integration_test_screen.dart';
+import '../../comprehensive_test_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -23,66 +19,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   late TabController _tabController;
   final DatabaseService _databaseService = DatabaseService();
   
-  // Real-time dashboard data
   Map<String, dynamic> _dashboardStats = {};
   List<Map<String, dynamic>> _recentActivity = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadDashboardData();
-    
-    // Refresh data every 30 seconds
-    _setupAutoRefresh();
-  }
-
-  void _setupAutoRefresh() {
-    Stream.periodic(const Duration(seconds: 30)).listen((_) {
-      if (mounted) {
-        _loadDashboardData();
-      }
-    });
   }
 
   Future<void> _loadDashboardData() async {
     try {
+      final stats = await _databaseService.getSystemAnalytics();
       final analytics = await _databaseService.getSystemAnalytics();
-      // Create sample recent activity for now
-      final activity = <Map<String, dynamic>>[
-        {
-          'type': 'created',
-          'title': 'New order created',
-          'subtitle': 'Order #SC12345',
-          'time': DateTime.now().subtract(const Duration(minutes: 5)),
-        },
-        {
-          'type': 'delivered',
-          'title': 'Order delivered',
-          'subtitle': 'Order #SC12344',
-          'time': DateTime.now().subtract(const Duration(hours: 1)),
-        },
-        {
-          'type': 'confirmed',
-          'title': 'Order confirmed',
-          'subtitle': 'Order #SC12343',
-          'time': DateTime.now().subtract(const Duration(hours: 2)),
-        },
-      ];
       
       if (mounted) {
         setState(() {
-          _dashboardStats = analytics;
-          _recentActivity = activity;
-          _isLoading = false;
+          _dashboardStats = {
+            'totalOrders': stats['totalOrders'] ?? 0,
+            'activeDrivers': stats['activeDrivers'] ?? 0,
+            'totalRevenue': stats['totalRevenue'] ?? 0.0,
+            'completedOrders': stats['completedOrders'] ?? 0,
+          };
+          _recentActivity = analytics['recentActivity'] ?? [];
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading dashboard data: $e')),
+          SnackBar(content: Text('Error loading dashboard: $e')),
         );
       }
     }
@@ -97,150 +63,165 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Light gray background
+      backgroundColor: AppDesignSystem.backgroundDark,
       body: SafeArea(
         child: Column(
           children: [
-            // Modern Header with gradient
+            // Header with gradient and logo
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppConstants.primaryColor, AppConstants.accentColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: AppDesignSystem.primaryGradient,
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppConstants.primaryColor.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            Assets.logo,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.admin_panel_settings,
-                                color: AppConstants.primaryColor,
-                                size: 24,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          Text(
-                            'Small Cargo Admin',
-                            style: TextStyle(
+                          Container(
+                            width: 40,
+                            height: 40,
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
                               color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Image.asset(
+                                'assets/images/logo.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.admin_panel_settings,
+                                    color: AppDesignSystem.primaryGold,
+                                    size: 24,
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                          Text(
-                            'Dashboard',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Admin Dashboard',
+                                style: AppDesignSystem.headlineMedium.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'SmallCargo Management',
+                                style: AppDesignSystem.bodyMedium.copyWith(
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.admin_panel_settings,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final authService = Provider.of<AuthService>(context, listen: false);
+                              await authService.signOut();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.8),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.logout,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.logout, color: Colors.white),
-                      onPressed: () async {
-                        final authService = Provider.of<AuthService>(context, listen: false);
-                        await authService.signOut();
-                      },
-                      tooltip: 'Sign Out',
-                    ),
-                  ),
                 ],
               ),
             ),
             
-            // Modern Tab Navigation
+            // Tab Bar
             Container(
-              margin: const EdgeInsets.all(20),
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
+                color: AppDesignSystem.backgroundCard,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppDesignSystem.primaryGold.withOpacity(0.3)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: TabBar(
                 controller: _tabController,
-                labelColor: AppConstants.primaryColor,
-                unselectedLabelColor: Colors.grey,
+                isScrollable: true,
                 indicator: BoxDecoration(
-                  color: AppConstants.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(15),
+                  gradient: AppDesignSystem.primaryGradient,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                indicatorPadding: const EdgeInsets.all(4),
+                labelColor: Colors.white,
+                unselectedLabelColor: AppDesignSystem.textMuted,
+                labelStyle: AppDesignSystem.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
                 tabs: const [
-                  Tab(text: 'Overview', icon: Icon(Icons.dashboard_outlined)),
-                  Tab(text: 'Orders', icon: Icon(Icons.list_alt_outlined)),
-                  Tab(text: 'Drivers', icon: Icon(Icons.people_outline)),
-                  Tab(text: 'Analytics', icon: Icon(Icons.analytics_outlined)),
+                  Tab(text: 'Overview'),
+                  Tab(text: 'Orders'),
+                  Tab(text: 'Drivers'),
+                  Tab(text: 'Analytics'),
+                  Tab(text: 'Pricing'),
+                  Tab(text: 'Testing'),
                 ],
               ),
             ),
             
+            // Tab Views
             Expanded(
-              child: _isLoading 
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _OverviewTab(dashboardStats: _dashboardStats, recentActivity: _recentActivity),
-                      const _OrdersManagementTab(),
-                      const _DriversManagementTab(),
-                      const _AnalyticsTab(),
-                    ],
-                  ),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _OverviewTab(dashboardStats: _dashboardStats, recentActivity: _recentActivity),
+                  const _OrdersManagementTab(),
+                  const _DriversManagementTab(),
+                  const _AnalyticsTab(),
+                  const _PricingManagementTab(),
+                  const _TestingTab(),
+                ],
+              ),
             ),
           ],
         ),
@@ -253,845 +234,137 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 class _OverviewTab extends StatelessWidget {
   final Map<String, dynamic> dashboardStats;
   final List<Map<String, dynamic>> recentActivity;
-  
+
   const _OverviewTab({
-    required this.dashboardStats, 
+    required this.dashboardStats,
     required this.recentActivity,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stats Cards Row
-          Row(
-            children: [
-              Expanded(
-                child: _StatsCard(
-                  title: 'Total Orders',
-                  value: '${dashboardStats['monthOrders'] ?? 0}',
-                  icon: Icons.shopping_bag,
-                  color: AppConstants.primaryColor,
-                  trend: '+${((dashboardStats['todayOrders'] ?? 0) * 100 / math.max(1, dashboardStats['monthOrders'] ?? 1)).toStringAsFixed(1)}%',
-                  isPositive: true,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatsCard(
-                  title: 'Active Drivers',
-                  value: '${dashboardStats['activeDrivers'] ?? 0}',
-                  icon: Icons.local_shipping,
-                  color: Colors.blue,
-                  trend: '${dashboardStats['totalDrivers'] ?? 0} total',
-                  isPositive: true,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _StatsCard(
-                  title: 'Revenue Today',
-                  value: '\$${(dashboardStats['todayRevenue'] ?? 0.0).toStringAsFixed(0)}',
-                  icon: Icons.attach_money,
-                  color: Colors.green,
-                  trend: 'Month: \$${(dashboardStats['monthRevenue'] ?? 0.0).toStringAsFixed(0)}',
-                  isPositive: true,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatsCard(
-                  title: 'Pending Orders',
-                  value: '${dashboardStats['pendingOrders'] ?? 0}',
-                  icon: Icons.pending,
-                  color: Colors.orange,
-                  trend: '${dashboardStats['completedToday'] ?? 0} completed',
-                  isPositive: false,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Recent Activity Section
-          _buildSection(
-            'Recent Activity',
-            recentActivity.isEmpty
-                ? [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      child: const Center(
-                        child: Text(
-                          'No recent activity',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ]
-                : recentActivity.take(5).map((activity) => _ActivityItem(
-                    icon: _getActivityIcon(activity['type']),
-                    title: activity['title'],
-                    subtitle: activity['subtitle'],
-                    time: _formatTime(activity['time']),
-                    color: _getActivityColor(activity['type']),
-                  )).toList(),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Quick Actions
-          _buildSection(
-            'Quick Actions',
-            [
-              Row(
-                children: [
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.add,
-                      title: 'Create Order',
-                      subtitle: 'Add new delivery order',
-                      onTap: () => _showCreateOrderDialog(context),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.person_add,
-                      title: 'Add Driver',
-                      subtitle: 'Register new driver',
-                      onTap: () => _showAddDriverDialog(context),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.assignment,
-                      title: 'Assign Orders',
-                      subtitle: 'Bulk assign pending orders',
-                      onTap: () => _showAssignOrdersDialog(context),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.report,
-                      title: 'Generate Report',
-                      subtitle: 'Export delivery reports',
-                      onTap: () => _showReportOptionsDialog(context),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getActivityIcon(String type) {
-    switch (type) {
-      case 'created':
-        return Icons.add_circle;
-      case 'confirmed':
-        return Icons.check_circle_outline;
-      case 'picked_up':
-        return Icons.local_shipping;
-      case 'in_transit':
-        return Icons.directions;
-      case 'delivered':
-        return Icons.check_circle;
-      case 'cancelled':
-        return Icons.cancel;
-      default:
-        return Icons.info;
-    }
-  }
-
-  Color _getActivityColor(String type) {
-    switch (type) {
-      case 'created':
-        return AppConstants.primaryColor;
-      case 'confirmed':
-        return Colors.blue;
-      case 'picked_up':
-        return Colors.orange;
-      case 'in_transit':
-        return Colors.purple;
-      case 'delivered':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _formatTime(dynamic timestamp) {
-    if (timestamp == null) return 'Unknown time';
-    
-    DateTime dateTime;
-    if (timestamp is DateTime) {
-      dateTime = timestamp;
-    } else {
-      return 'Unknown time';
-    }
-
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} minutes ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} hours ago';
-    } else {
-      return DateFormat('MMM d, y').format(dateTime);
-    }
-  }
-
-  // Quick Action Dialog Methods
-  void _showCreateOrderDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _CreateOrderDialog(),
-    );
-  }
-
-  void _showAddDriverDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _AddDriverDialog(),
-    );
-  }
-
-  void _showAssignOrdersDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _AssignOrdersDialog(),
-    );
-  }
-
-  void _showReportOptionsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _ReportOptionsDialog(),
-    );
-  }
-}
-
-// Orders Management Tab
-class _OrdersManagementTab extends StatefulWidget {
-  const _OrdersManagementTab();
-
-  @override
-  State<_OrdersManagementTab> createState() => _OrdersManagementTabState();
-}
-
-class _OrdersManagementTabState extends State<_OrdersManagementTab> {
-  String _selectedFilter = 'All';
-  String _selectedPriorityFilter = 'All';
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Search and Filter Row
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search orders...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedFilter,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    labelText: 'Status',
-                  ),
-                  items: ['All', 'Pending', 'Confirmed', 'Picked Up', 'In Transit', 'Delivered', 'Cancelled']
-                      .map((filter) => DropdownMenuItem(
-                            value: filter,
-                            child: Text(filter),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedFilter = value!;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedPriorityFilter,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    labelText: 'Priority',
-                  ),
-                  items: ['All', 'Low', 'Medium', 'High', 'Urgent']
-                      .map((filter) => DropdownMenuItem(
-                            value: filter,
-                            child: Text(filter),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedPriorityFilter = value!;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Orders List
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: StreamBuilder<List<order_model.Order>>(
-                stream: Provider.of<DatabaseService>(context, listen: false).getAllOrders(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Text('Error: ${snapshot.error}'),
-                    );
-                  }
-                  
-                  final orders = snapshot.data ?? [];
-                  final filteredOrders = _filterOrders(orders);
-                  
-                  if (filteredOrders.isEmpty) {
-                    return const Center(
-                      child: Text('No orders found'),
-                    );
-                  }
-                  
-                  return ListView.builder(
-                    itemCount: filteredOrders.length,
-                    itemBuilder: (context, index) {
-                      final order = filteredOrders[index];
-                      return _OrderListItem(order: order);
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<order_model.Order> _filterOrders(List<order_model.Order> orders) {
-    var filtered = orders.where((order) {
-      // Search filter
-      final matchesSearch = _searchQuery.isEmpty ||
-          order.trackingNumber.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          order.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          order.customerId.toLowerCase().contains(_searchQuery.toLowerCase());
-      
-      // Status filter
-      final matchesStatus = _selectedFilter == 'All' ||
-          order.status.name.toLowerCase() == _selectedFilter.toLowerCase().replaceAll(' ', '').replaceAll('picked', 'pickedup');
-      
-      // Priority filter
-      final matchesPriority = _selectedPriorityFilter == 'All' ||
-          order.priority.name.toLowerCase() == _selectedPriorityFilter.toLowerCase();
-      
-      return matchesSearch && matchesStatus && matchesPriority;
-    }).toList();
-    
-    // Sort by creation date (newest first)
-    filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    
-    return filtered;
-  }
-}
-
-// Drivers Management Tab
-class _DriversManagementTab extends StatelessWidget {
-  const _DriversManagementTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Add Driver Button
-          SizedBox(
-            width: double.infinity,
-            child: GradientElevatedButton(
-              onPressed: () {
-                _showAddDriverDialog(context);
-              },
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('Add New Driver', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Drivers List
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: StreamBuilder<List<User>>(
-                stream: Provider.of<DatabaseService>(context, listen: false).getDrivers(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Text('Error: ${snapshot.error}'),
-                    );
-                  }
-                  
-                  final drivers = snapshot.data ?? [];
-                  
-                  if (drivers.isEmpty) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('No drivers found'),
-                          Text('Add drivers to start managing deliveries'),
-                        ],
-                      ),
-                    );
-                  }
-                  
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: drivers.length,
-                    itemBuilder: (context, index) {
-                      final driver = drivers[index];
-                      return _DriverListItem(driver: driver);
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddDriverDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _AddDriverDialog(),
-    );
-  }
-}
-
-// Analytics Tab
-class _AnalyticsTab extends StatefulWidget {
-  const _AnalyticsTab();
-
-  @override
-  State<_AnalyticsTab> createState() => _AnalyticsTabState();
-}
-
-class _AnalyticsTabState extends State<_AnalyticsTab> {
-  Map<String, dynamic>? _analyticsData;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAnalytics();
-  }
-
-  Future<void> _loadAnalytics() async {
-    try {
-      final databaseService = Provider.of<DatabaseService>(context, listen: false);
-      final analytics = await databaseService.getAdvancedAnalytics();
-      setState(() {
-        _analyticsData = analytics;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading analytics: $e')),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_analyticsData == null) {
-      return const Center(child: Text('Error loading analytics data'));
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Key Performance Metrics
-          _buildSection(
-            'Key Performance Metrics',
-            [
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Total Orders',
-                      value: '${_analyticsData!['totalOrders']}',
-                      subtitle: 'All time',
-                      color: Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Total Revenue',
-                      value: '\$${_analyticsData!['totalRevenue'].toStringAsFixed(2)}',
-                      subtitle: 'All time earnings',
-                      color: Colors.green,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Avg Order Value',
-                      value: '\$${_analyticsData!['avgOrderValue'].toStringAsFixed(2)}',
-                      subtitle: 'Per order',
-                      color: Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Delivery Rate',
-                      value: '${_analyticsData!['deliveryRate'].toStringAsFixed(1)}%',
-                      subtitle: 'Success rate',
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Monthly Performance
-          _buildSection(
-            'This Month',
-            [
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Orders',
-                      value: '${_analyticsData!['ordersThisMonth']}',
-                      subtitle: 'This month',
-                      color: Colors.purple,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Revenue',
-                      value: '\$${_analyticsData!['revenueThisMonth'].toStringAsFixed(2)}',
-                      subtitle: 'This month',
-                      color: Colors.teal,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Users Overview
-          _buildSection(
-            'Users Overview',
-            [
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Customers',
-                      value: '${_analyticsData!['customerCount']}',
-                      subtitle: 'Total customers',
-                      color: Colors.indigo,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MetricCard(
-                      title: 'Drivers',
-                      value: '${_analyticsData!['driverCount']}',
-                      subtitle: 'Active drivers',
-                      color: Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Order Status Breakdown
-          _buildSection(
-            'Order Status Breakdown',
-            [
-              _buildStatusBreakdown(_analyticsData!['statusBreakdown']),
-            ],
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Priority Distribution
-          _buildSection(
-            'Priority Distribution',
-            [
-              _buildPriorityBreakdown(_analyticsData!['priorityBreakdown']),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBreakdown(Map<String, int> statusBreakdown) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        gradient: AppDesignSystem.primaryGradient,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: statusBreakdown.entries.map((entry) {
-          final percentage = statusBreakdown.values.fold(0, (sum, count) => sum + count) > 0
-              ? (entry.value / statusBreakdown.values.fold(0, (sum, count) => sum + count) * 100)
-              : 0.0;
-          
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Stats Cards
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
               children: [
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    entry.key.toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
+                _buildStatCard(
+                  'Total Orders',
+                  '${dashboardStats['totalOrders'] ?? 0}',
+                  Icons.inventory_2,
+                  Colors.blue,
                 ),
-                Expanded(
-                  child: Container(
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: percentage / 100,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(entry.key),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
+                _buildStatCard(
+                  'Active Drivers',
+                  '${dashboardStats['activeDrivers'] ?? 0}',
+                  Icons.local_shipping,
+                  Colors.green,
                 ),
-                const SizedBox(width: 8),
-                Text('${entry.value} (${percentage.toStringAsFixed(1)}%)'),
+                _buildStatCard(
+                  'Total Revenue',
+                  '\$${(dashboardStats['totalRevenue'] ?? 0.0).toStringAsFixed(2)}',
+                  Icons.attach_money,
+                  Colors.orange,
+                ),
+                _buildStatCard(
+                  'Completed Orders',
+                  '${dashboardStats['completedOrders'] ?? 0}',
+                  Icons.check_circle,
+                  Colors.purple,
+                ),
               ],
             ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildPriorityBreakdown(Map<String, int> priorityBreakdown) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: priorityBreakdown.entries.map((entry) {
-          final color = _getPriorityColor(entry.key);
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: color,
-              child: Text(
-                '${entry.value}',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            
+            const SizedBox(height: 24),
+            
+            // Recent Activity
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recent Activity',
+                    style: AppDesignSystem.headlineSmall.copyWith(
+                      color: AppDesignSystem.primaryGold,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 200,
+                    child: recentActivity.isNotEmpty
+                        ? ListView.builder(
+                            itemCount: recentActivity.length.clamp(0, 5),
+                            itemBuilder: (context, index) {
+                              final activity = recentActivity[index];
+                              return ListTile(
+                                leading: Icon(
+                                  Icons.history,
+                                  color: AppDesignSystem.primaryGold,
+                                ),
+                                title: Text(activity['title'] ?? 'Activity'),
+                                subtitle: Text(activity['description'] ?? ''),
+                                trailing: Text(
+                                  activity['time'] ?? '',
+                                  style: AppDesignSystem.bodySmall.copyWith(
+                                    color: AppDesignSystem.textMuted,
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : Center(
+                            child: Text(
+                              'No recent activity',
+                              style: AppDesignSystem.bodyMedium.copyWith(
+                                color: AppDesignSystem.textMuted,
+                              ),
+                            ),
+                          ),
+                  ),
+                ],
               ),
             ),
-            title: Text(entry.key.toUpperCase()),
-            trailing: Text('${entry.value} orders'),
-          );
-        }).toList(),
+          ],
+        ),
       ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'confirmed':
-        return Colors.blue;
-      case 'pickedup':
-        return Colors.purple;
-      case 'intransit':
-        return AppConstants.primaryColor;
-      case 'delivered':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  Color _getPriorityColor(String priority) {
-    switch (priority.toLowerCase()) {
-      case 'low':
-        return Colors.green;
-      case 'medium':
-        return Colors.blue;
-      case 'high':
-        return Colors.orange;
-      case 'urgent':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-}
-
-// Helper Widgets
-
-class _StatsCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
-  final String trend;
-  final bool isPositive;
-
-  const _StatsCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-    required this.trend,
-    required this.isPositive,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1099,39 +372,31 @@ class _StatsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: color, size: 24),
-              const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isPositive ? Colors.green[100] : Colors.red[100],
-                  borderRadius: BorderRadius.circular(12),
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  trend,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isPositive ? Colors.green[700] : Colors.red[700],
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Icon(icon, color: color, size: 24),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 24,
+            style: AppDesignSystem.headlineMedium.copyWith(
               fontWeight: FontWeight.bold,
+              color: AppDesignSystem.primaryGold,
             ),
           ),
+          const SizedBox(height: 4),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
+            style: AppDesignSystem.bodyMedium.copyWith(
+              color: AppDesignSystem.textMuted,
             ),
           ),
         ],
@@ -1140,116 +405,178 @@ class _StatsCard extends StatelessWidget {
   }
 }
 
-class _ActivityItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String time;
-  final Color color;
-
-  const _ActivityItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.color,
-  });
+// Testing Tab - Admin Access Only
+class _TestingTab extends StatelessWidget {
+  const _TestingTab();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppDesignSystem.primaryGradient,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: AppDesignSystem.primaryGradient,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.bug_report,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Testing Dashboard',
+                        style: AppDesignSystem.headlineSmall.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppDesignSystem.primaryGold,
+                        ),
+                      ),
+                      Text(
+                        'Admin-only access to testing tools and diagnostics',
+                        style: AppDesignSystem.bodyMedium.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
+            
+            const SizedBox(height: 24),
+            
+            // Testing Options Grid
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                children: [
+                  _buildTestingCard(
+                    context,
+                    'Integration Tests',
+                    'Run comprehensive system tests',
+                    Icons.integration_instructions,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const IntegrationTestScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildTestingCard(
+                    context,
+                    'Core Functions',
+                    'Test individual app components',
+                    Icons.functions,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ComprehensiveTestScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildTestingCard(
+                    context,
+                    'Demo Data',
+                    'Generate sample data for testing',
+                    Icons.data_object,
+                    () => _showDemoDataDialog(context),
+                  ),
+                  _buildTestingCard(
+                    context,
+                    'System Status',
+                    'Check system health and logs',
+                    Icons.monitor_heart,
+                    () => _showSystemStatusDialog(context),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-}
 
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget _buildTestingCard(
+    BuildContext context,
+    String title,
+    String description,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppConstants.primaryColor, size: 32),
-            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: AppDesignSystem.primaryGradient,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+              style: AppDesignSystem.bodyMedium.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppDesignSystem.primaryGold,
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 8),
             Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
+              description,
+              style: AppDesignSystem.bodySmall.copyWith(
                 color: Colors.grey[600],
               ),
               textAlign: TextAlign.center,
@@ -1259,1260 +586,688 @@ class _QuickActionCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _OrderListItem extends StatelessWidget {
-  final order_model.Order order;
-
-  const _OrderListItem({required this.order});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[200]!),
-        borderRadius: BorderRadius.circular(8),
+  void _showDemoDataDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Demo Data Generator'),
+        content: const Text('This would generate sample orders, users, and drivers for testing purposes.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Demo data generation would be implemented here')),
+              );
+            },
+            child: const Text('Generate'),
+          ),
+        ],
       ),
+    );
+  }
+
+  void _showSystemStatusDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('System Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatusItem('Database', 'Connected', true),
+            _buildStatusItem('Authentication', 'Active', true),
+            _buildStatusItem('Push Notifications', 'Enabled', true),
+            _buildStatusItem('Location Services', 'Running', true),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusItem(String service, String status, bool isHealthy) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _getStatusColor(order.status),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _getStatusIcon(order.status),
-              color: Colors.white,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  order.trackingNumber,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  order.description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  () {
-                    try {
-                      return DateFormat('MMM dd, yyyy HH:mm').format(order.createdAt);
-                    } catch (e) {
-                      return 'Invalid date';
-                    }
-                  }(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Text(service),
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(order.status),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  order.status.name.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              Icon(
+                isHealthy ? Icons.check_circle : Icons.error,
+                color: isHealthy ? Colors.green : Colors.red,
+                size: 16,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(width: 4),
               Text(
-                '\$${order.estimatedCost.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                status,
+                style: TextStyle(
+                  color: isHealthy ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.more_vert, size: 18),
-            onPressed: () {
-              _showOrderOptions(context, order);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getStatusColor(order_model.OrderStatus status) {
-    switch (status) {
-      case order_model.OrderStatus.pending:
-        return Colors.orange;
-      case order_model.OrderStatus.confirmed:
-        return Colors.blue;
-      case order_model.OrderStatus.pickedUp:
-        return AppConstants.primaryColor;
-      case order_model.OrderStatus.inTransit:
-        return AppConstants.primaryColor;
-      case order_model.OrderStatus.delivered:
-        return Colors.green;
-      case order_model.OrderStatus.cancelled:
-        return Colors.red;
-    }
-  }
-
-  IconData _getStatusIcon(order_model.OrderStatus status) {
-    switch (status) {
-      case order_model.OrderStatus.pending:
-        return Icons.pending;
-      case order_model.OrderStatus.confirmed:
-        return Icons.assignment;
-      case order_model.OrderStatus.pickedUp:
-        return Icons.local_shipping;
-      case order_model.OrderStatus.inTransit:
-        return Icons.local_shipping;
-      case order_model.OrderStatus.delivered:
-        return Icons.check_circle;
-      case order_model.OrderStatus.cancelled:
-        return Icons.cancel;
-    }
-  }
-
-  void _showOrderOptions(BuildContext context, order_model.Order order) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.visibility),
-              title: const Text('View Details'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Show order details modal
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('View details for ${order.trackingNumber}')),
-                );
-              },
-            ),
-            if (order.status == order_model.OrderStatus.pending ||
-                order.status == order_model.OrderStatus.confirmed)
-              ListTile(
-                leading: const Icon(Icons.assignment),
-                title: const Text('Assign Driver'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showAssignDriverDialog(context, order);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit Order'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EditOrderScreen(order: order),
-                  ),
-                );
-              },
-            ),
-            if (order.status != order_model.OrderStatus.delivered && 
-                order.status != order_model.OrderStatus.cancelled)
-              ListTile(
-                leading: const Icon(Icons.cancel, color: Colors.red),
-                title: const Text('Cancel Order', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showCancelOrderDialog(context, order);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAssignDriverDialog(BuildContext context, order_model.Order order) {
-    showDialog(
-      context: context,
-      builder: (context) => _DriverAssignmentDialog(order: order),
-    );
-  }
-
-  void _showCancelOrderDialog(BuildContext context, order_model.Order order) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel Order'),
-        content: Text('Are you sure you want to cancel order ${order.trackingNumber}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final databaseService = Provider.of<DatabaseService>(context, listen: false);
-              try {
-                await databaseService.updateOrderStatus(order.id, order_model.OrderStatus.cancelled);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Order cancelled successfully')),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error cancelling order: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
-          ),
         ],
       ),
     );
   }
 }
 
-class _DriverListItem extends StatelessWidget {
-  final User driver;
-
-  const _DriverListItem({required this.driver});
+// Placeholder tabs - you would implement these based on your existing admin functionality
+class _OrdersManagementTab extends StatelessWidget {
+  const _OrdersManagementTab();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[200]!),
-        borderRadius: BorderRadius.circular(8),
+        gradient: AppDesignSystem.primaryGradient,
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: AppConstants.primaryColor,
-            backgroundImage: driver.profileImageUrl != null
-                ? NetworkImage(driver.profileImageUrl!)
-                : null,
-            child: driver.profileImageUrl == null
-                ? Text(
-                    driver.name.isNotEmpty ? driver.name[0].toUpperCase() : 'D',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  driver.name.isEmpty ? 'Unknown Driver' : driver.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  driver.email,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                if (driver.phoneNumber != null)
-                  Text(
-                    driver.phoneNumber!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: driver.isActive ? Colors.green : Colors.red,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              driver.isActive ? 'ACTIVE' : 'INACTIVE',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              _showDriverOptions(context, driver);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDriverOptions(BuildContext context, User driver) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit Driver'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to edit driver
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                driver.isActive ? Icons.block : Icons.check_circle,
-                color: driver.isActive ? Colors.red : Colors.green,
-              ),
-              title: Text(
-                driver.isActive ? 'Deactivate Driver' : 'Activate Driver',
-                style: TextStyle(
-                  color: driver.isActive ? Colors.red : Colors.green,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Toggle driver status
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Remove Driver', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Remove driver
-              },
-            ),
-          ],
+      child: const Center(
+        child: Text(
+          'Orders Management Tab\n(Implementation needed)',
+          style: TextStyle(color: Colors.white, fontSize: 18),
+          textAlign: TextAlign.center,
         ),
       ),
     );
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final String subtitle;
-  final Color color;
-
-  const _MetricCard({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.color,
-  });
+class _DriversManagementTab extends StatelessWidget {
+  const _DriversManagementTab();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: AppDesignSystem.primaryGradient,
+      ),
+      child: const Center(
+        child: Text(
+          'Drivers Management Tab\n(Implementation needed)',
+          style: TextStyle(color: Colors.white, fontSize: 18),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalyticsTab extends StatelessWidget {
+  const _AnalyticsTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppDesignSystem.primaryGradient,
+      ),
+      child: const Center(
+        child: Text(
+          'Analytics Tab\n(Implementation needed)',
+          style: TextStyle(color: Colors.white, fontSize: 18),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+// Pricing Management Tab - Admin Access Only
+class _PricingManagementTab extends StatefulWidget {
+  const _PricingManagementTab();
+
+  @override
+  State<_PricingManagementTab> createState() => _PricingManagementTabState();
+}
+
+class _PricingManagementTabState extends State<_PricingManagementTab> {
+  final PricingService _pricingService = PricingService();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  
+  late TextEditingController _baseFeeController;
+  late TextEditingController _pricePerKmController;
+  late TextEditingController _pricePerKgController;
+  late TextEditingController _minimumPriceController;
+  late TextEditingController _maximumPriceController;
+  
+  late TextEditingController _lowPriorityController;
+  late TextEditingController _mediumPriorityController;
+  late TextEditingController _highPriorityController;
+  late TextEditingController _urgentPriorityController;
+  
+  late TextEditingController _insuranceController;
+  late TextEditingController _trackingController;
+  late TextEditingController _expressController;
+  late TextEditingController _fragileController;
+  
+  bool _isLoading = false;
+  bool _hasChanges = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+    _loadCurrentPricing();
+  }
+
+  void _initializeControllers() {
+    final pricing = _pricingService.pricingRules;
+    
+    _baseFeeController = TextEditingController(text: pricing['baseFee'].toString());
+    _pricePerKmController = TextEditingController(text: pricing['pricePerMile'].toString());
+    _pricePerKgController = TextEditingController(text: pricing['pricePerLb'].toString());
+    _minimumPriceController = TextEditingController(text: pricing['minimumPrice'].toString());
+    _maximumPriceController = TextEditingController(text: pricing['maximumPrice'].toString());
+    
+    final priorityMultipliers = pricing['priorityMultipliers'] as Map<String, dynamic>;
+    _lowPriorityController = TextEditingController(text: priorityMultipliers['low'].toString());
+    _mediumPriorityController = TextEditingController(text: priorityMultipliers['medium'].toString());
+    _highPriorityController = TextEditingController(text: priorityMultipliers['high'].toString());
+    _urgentPriorityController = TextEditingController(text: priorityMultipliers['urgent'].toString());
+    
+    final serviceFees = pricing['serviceFees'] as Map<String, dynamic>;
+    _insuranceController = TextEditingController(text: serviceFees['insurance'].toString());
+    _trackingController = TextEditingController(text: serviceFees['tracking'].toString());
+    _expressController = TextEditingController(text: serviceFees['express'].toString());
+    _fragileController = TextEditingController(text: serviceFees['fragile'].toString());
+    
+    // Add listeners to track changes
+    _addChangeListeners();
+  }
+
+  void _addChangeListeners() {
+    final controllers = [
+      _baseFeeController, _pricePerKmController, _pricePerKgController,
+      _minimumPriceController, _maximumPriceController, _lowPriorityController,
+      _mediumPriorityController, _highPriorityController, _urgentPriorityController,
+      _insuranceController, _trackingController, _expressController, _fragileController
+    ];
+    
+    for (var controller in controllers) {
+      controller.addListener(() {
+        if (!_hasChanges) {
+          setState(() => _hasChanges = true);
+        }
+      });
+    }
+  }
+
+  void _loadCurrentPricing() {
+    // Pricing is already loaded in initializeControllers
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _baseFeeController.dispose();
+    _pricePerKmController.dispose();
+    _pricePerKgController.dispose();
+    _minimumPriceController.dispose();
+    _maximumPriceController.dispose();
+    _lowPriorityController.dispose();
+    _mediumPriorityController.dispose();
+    _highPriorityController.dispose();
+    _urgentPriorityController.dispose();
+    _insuranceController.dispose();
+    _trackingController.dispose();
+    _expressController.dispose();
+    _fragileController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppDesignSystem.primaryGradient,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: AppDesignSystem.primaryGradient,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.attach_money,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pricing Management',
+                            style: AppDesignSystem.headlineSmall.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppDesignSystem.primaryGold,
+                            ),
+                          ),
+                          Text(
+                            'Configure delivery pricing and fees',
+                            style: AppDesignSystem.bodyMedium.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (_hasChanges)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.orange),
+                      ),
+                      child: Text(
+                        'Unsaved Changes',
+                        style: AppDesignSystem.bodySmall.copyWith(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Pricing Form
+            Expanded(
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      // Basic Pricing
+                      _buildPricingSection(
+                        'Basic Pricing',
+                        Icons.money,
+                        [
+                          _buildPriceField('Base Fee (\$)', _baseFeeController, 'Minimum charge for any delivery'),
+                          _buildPriceField('Price per Mile (\$)', _pricePerKmController, 'Cost per mile traveled'),
+                          _buildPriceField('Price per Pound (\$)', _pricePerKgController, 'Cost per pound of package weight'),
+                          _buildPriceField('Minimum Price (\$)', _minimumPriceController, 'Minimum total price for any order'),
+                          _buildPriceField('Maximum Price (\$)', _maximumPriceController, 'Maximum total price for any order'),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Priority Multipliers
+                      _buildPricingSection(
+                        'Priority Multipliers',
+                        Icons.priority_high,
+                        [
+                          _buildPriceField('Low Priority', _lowPriorityController, 'Multiplier for low priority orders (e.g., 1.0)'),
+                          _buildPriceField('Medium Priority', _mediumPriorityController, 'Multiplier for medium priority orders (e.g., 1.2)'),
+                          _buildPriceField('High Priority', _highPriorityController, 'Multiplier for high priority orders (e.g., 1.5)'),
+                          _buildPriceField('Urgent Priority', _urgentPriorityController, 'Multiplier for urgent orders (e.g., 2.0)'),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Service Fees
+                      _buildPricingSection(
+                        'Service Fees',
+                        Icons.design_services,
+                        [
+                          _buildPriceField('Insurance (\$)', _insuranceController, 'Additional fee for package insurance'),
+                          _buildPriceField('Tracking (\$)', _trackingController, 'Fee for real-time tracking service'),
+                          _buildPriceField('Express Delivery (\$)', _expressController, 'Additional fee for express delivery'),
+                          _buildPriceField('Fragile Handling (\$)', _fragileController, 'Extra fee for fragile package handling'),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 32),
+                      
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildActionButton(
+                              'Reset to Defaults',
+                              Icons.restore,
+                              Colors.grey,
+                              _resetToDefaults,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildActionButton(
+                              'Preview Changes',
+                              Icons.preview,
+                              Colors.blue,
+                              _previewChanges,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 2,
+                            child: _buildActionButton(
+                              _isLoading ? 'Saving...' : 'Save Pricing',
+                              Icons.save,
+                              AppDesignSystem.primaryGold,
+                              _isLoading ? null : _savePricing,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPricingSection(String title, IconData icon, List<Widget> fields) {
+    return Container(
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddDriverDialog extends StatefulWidget {
-  @override
-  State<_AddDriverDialog> createState() => _AddDriverDialogState();
-}
-
-class _AddDriverDialogState extends State<_AddDriverDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  bool _isLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add New Driver'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Full Name *',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter driver name';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email *',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter email';
-                }
-                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                  return 'Please enter a valid email';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Phone Number',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.phone,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _addDriver,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Add Driver'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _addDriver() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // TODO: Implement actual driver creation
-      // This would typically involve creating a Firebase Auth account
-      // and then creating a User document with driver role
-      
-      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
-      
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Driver added successfully!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding driver: $e')),
-        );
-      }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-}
-
-// Driver Assignment Dialog Widget
-class _DriverAssignmentDialog extends StatefulWidget {
-  final order_model.Order order;
-
-  const _DriverAssignmentDialog({required this.order});
-
-  @override
-  State<_DriverAssignmentDialog> createState() => _DriverAssignmentDialogState();
-}
-
-class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
-  List<User> _availableDrivers = [];
-  User? _selectedDriver;
-  bool _isLoading = true;
-  bool _isAssigning = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAvailableDrivers();
-  }
-
-  Future<void> _loadAvailableDrivers() async {
-    try {
-      final databaseService = Provider.of<DatabaseService>(context, listen: false);
-      final drivers = await databaseService.getAvailableDrivers();
-      setState(() {
-        _availableDrivers = drivers;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading drivers: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _assignDriver() async {
-    if (_selectedDriver == null) return;
-
-    setState(() {
-      _isAssigning = true;
-    });
-
-    try {
-      final databaseService = Provider.of<DatabaseService>(context, listen: false);
-      await databaseService.assignDriverToOrder(widget.order.id, _selectedDriver!.id);
-      
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Driver ${_selectedDriver!.name} assigned successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error assigning driver: $e')),
-        );
-      }
-    } finally {
-      setState(() {
-        _isAssigning = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Assign Driver to Order #${widget.order.trackingNumber}'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_isLoading)
-              const CircularProgressIndicator()
-            else if (_availableDrivers.isEmpty)
-              const Text('No drivers available')
-            else
+          Row(
+            children: [
               Container(
-                constraints: const BoxConstraints(maxHeight: 300),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _availableDrivers.length,
-                  itemBuilder: (context, index) {
-                    final driver = _availableDrivers[index];
-                    return RadioListTile<User>(
-                      title: Text(driver.name),
-                      subtitle: Text(driver.email),
-                      value: driver,
-                      groupValue: _selectedDriver,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedDriver = value;
-                        });
-                      },
-                      activeColor: AppConstants.primaryColor,
-                    );
-                  },
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppDesignSystem.primaryGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: AppDesignSystem.headlineSmall.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppDesignSystem.primaryGold,
                 ),
               ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _selectedDriver == null || _isAssigning ? null : _assignDriver,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppConstants.primaryColor,
-            foregroundColor: Colors.white,
+            ],
           ),
-          child: _isAssigning
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Assign Driver'),
-        ),
-      ],
-    );
-  }
-}
-
-Widget _buildSection(String title, List<Widget> children) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-      const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: children,
-        ),
-      ),
-    ],
-  );
-}
-
-// Quick Action Dialogs
-
-class _CreateOrderDialog extends StatefulWidget {
-  @override
-  State<_CreateOrderDialog> createState() => _CreateOrderDialogState();
-}
-
-class _CreateOrderDialogState extends State<_CreateOrderDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _descriptionController = TextEditingController();
-  final _pickupAddressController = TextEditingController();
-  final _deliveryAddressController = TextEditingController();
-  final _weightController = TextEditingController();
-  final _costController = TextEditingController();
-  bool _isLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.add_circle, color: AppConstants.primaryColor),
-          const SizedBox(width: 8),
-          const Text('Create New Order'),
+          const SizedBox(height: 20),
+          ...fields,
         ],
       ),
-      content: SizedBox(
-        width: 400,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    );
+  }
+
+  Widget _buildPriceField(String label, TextEditingController controller, String hint) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          labelStyle: AppDesignSystem.bodyMedium.copyWith(
+            color: AppDesignSystem.textMuted,
+          ),
+          filled: true,
+          fillColor: AppDesignSystem.backgroundCard,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppDesignSystem.primaryGold),
+          ),
+          prefixIcon: const Icon(Icons.attach_money, color: AppDesignSystem.primaryGold),
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'This field is required';
+          }
+          final number = double.tryParse(value);
+          if (number == null || number < 0) {
+            return 'Please enter a valid positive number';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String text, IconData icon, Color color, VoidCallback? onPressed) {
+    return SizedBox(
+      height: 48,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: onPressed == null ? Colors.grey.withOpacity(0.3) : color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: onPressed == null ? Colors.grey : color),
+          ),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Package Description',
-                    border: OutlineInputBorder(),
+                Icon(icon, color: onPressed == null ? Colors.grey : color, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  text,
+                  style: AppDesignSystem.bodyMedium.copyWith(
+                    color: onPressed == null ? Colors.grey : color,
+                    fontWeight: FontWeight.w600,
                   ),
-                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _pickupAddressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Pickup Address',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _deliveryAddressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Delivery Address',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _weightController,
-                        decoration: const InputDecoration(
-                          labelText: 'Weight (kg)',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _costController,
-                        decoration: const InputDecoration(
-                          labelText: 'Cost (\$)',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _createOrder,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppConstants.primaryColor,
-            foregroundColor: Colors.white,
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Create Order'),
-        ),
-      ],
     );
   }
 
-  Future<void> _createOrder() async {
+  void _resetToDefaults() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset to Defaults'),
+        content: const Text('Are you sure you want to reset all pricing to default values? This will lose any unsaved changes.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _initializeControllers();
+              setState(() => _hasChanges = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Pricing reset to defaults')),
+              );
+            },
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _previewChanges() {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
     
-    try {
-      // For demo purposes, just show success
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    _pickupAddressController.dispose();
-    _deliveryAddressController.dispose();
-    _weightController.dispose();
-    _costController.dispose();
-    super.dispose();
-  }
-}
-
-class _AddDriverDialogNew extends StatefulWidget {
-  @override
-  State<_AddDriverDialogNew> createState() => _AddDriverDialogNewState();
-}
-
-class _AddDriverDialogNewState extends State<_AddDriverDialogNew> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _licenseController = TextEditingController();
-  bool _isLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.person_add, color: Colors.blue),
-          const SizedBox(width: 8),
-          const Text('Add New Driver'),
-        ],
-      ),
-      content: SizedBox(
-        width: 400,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _licenseController,
-                  decoration: const InputDecoration(
-                    labelText: 'License Number',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _addDriver,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Add Driver'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _addDriver() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
+    // Calculate a sample price with current settings
+    final samplePrice = _calculateSamplePrice();
     
-    try {
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Driver added successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _licenseController.dispose();
-    super.dispose();
-  }
-}
-
-class _AssignOrdersDialog extends StatefulWidget {
-  @override
-  State<_AssignOrdersDialog> createState() => _AssignOrdersDialogState();
-}
-
-class _AssignOrdersDialogState extends State<_AssignOrdersDialog> {
-  final List<String> _selectedOrders = [];
-  String? _selectedDriver;
-  bool _isLoading = false;
-
-  final List<Map<String, String>> _pendingOrders = [
-    {'id': 'ORD001', 'description': 'Electronics Package', 'customer': 'John Doe'},
-    {'id': 'ORD002', 'description': 'Documents', 'customer': 'Jane Smith'},
-    {'id': 'ORD003', 'description': 'Clothing Items', 'customer': 'Bob Wilson'},
-  ];
-
-  final List<Map<String, String>> _availableDrivers = [
-    {'id': 'DRV001', 'name': 'Mike Johnson'},
-    {'id': 'DRV002', 'name': 'Sarah Connor'},
-    {'id': 'DRV003', 'name': 'Tom Brown'},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.assignment, color: Colors.orange),
-          const SizedBox(width: 8),
-          const Text('Assign Orders to Driver'),
-        ],
-      ),
-      content: SizedBox(
-        width: 500,
-        height: 400,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Select Driver:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedDriver,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-              items: _availableDrivers.map((driver) {
-                return DropdownMenuItem<String>(
-                  value: driver['id'],
-                  child: Text(driver['name']!),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => _selectedDriver = value),
-              hint: const Text('Choose a driver'),
-            ),
-            const SizedBox(height: 20),
-            const Text('Select Orders:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _pendingOrders.length,
-                itemBuilder: (context, index) {
-                  final order = _pendingOrders[index];
-                  final isSelected = _selectedOrders.contains(order['id']);
-                  
-                  return CheckboxListTile(
-                    title: Text(order['description']!),
-                    subtitle: Text('Customer: ${order['customer']}'),
-                    value: isSelected,
-                    onChanged: (bool? value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedOrders.add(order['id']!);
-                        } else {
-                          _selectedOrders.remove(order['id']);
-                        }
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: (_selectedDriver != null && _selectedOrders.isNotEmpty && !_isLoading)
-              ? _assignOrders
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Assign Orders'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _assignOrders() async {
-    setState(() => _isLoading = true);
-    
-    try {
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${_selectedOrders.length} orders assigned successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-}
-
-class _ReportOptionsDialog extends StatefulWidget {
-  @override
-  State<_ReportOptionsDialog> createState() => _ReportOptionsDialogState();
-}
-
-class _ReportOptionsDialogState extends State<_ReportOptionsDialog> {
-  String _selectedReportType = 'orders';
-  String _selectedPeriod = 'week';
-  bool _isGenerating = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.report, color: Colors.purple),
-          const SizedBox(width: 8),
-          const Text('Generate Report'),
-        ],
-      ),
-      content: SizedBox(
-        width: 350,
-        child: Column(
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pricing Preview'),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Report Type:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedReportType,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(value: 'orders', child: Text('Orders Report')),
-                DropdownMenuItem(value: 'revenue', child: Text('Revenue Report')),
-                DropdownMenuItem(value: 'drivers', child: Text('Driver Performance')),
-                DropdownMenuItem(value: 'customers', child: Text('Customer Activity')),
-              ],
-              onChanged: (value) => setState(() => _selectedReportType = value!),
-            ),
-            const SizedBox(height: 20),
-            const Text('Time Period:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedPeriod,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(value: 'week', child: Text('This Week')),
-                DropdownMenuItem(value: 'month', child: Text('This Month')),
-                DropdownMenuItem(value: 'quarter', child: Text('This Quarter')),
-                DropdownMenuItem(value: 'year', child: Text('This Year')),
-              ],
-              onChanged: (value) => setState(() => _selectedPeriod = value!),
+            const Text('Sample Order Calculation:'),
+            const Text('• Distance: 15 miles'),
+            const Text('• Weight: 6.6 lbs'),
+            const Text('• Priority: Medium'),
+            const Text('• Insurance: Yes'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: AppDesignSystem.primaryGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Total Price: \$${samplePrice.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isGenerating ? null : _generateReport,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purple,
-            foregroundColor: Colors.white,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
-          child: _isGenerating
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Generate'),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Future<void> _generateReport() async {
-    setState(() => _isGenerating = true);
+  double _calculateSamplePrice() {
+    try {
+      final baseFee = double.parse(_baseFeeController.text);
+      final pricePerMile = double.parse(_pricePerKmController.text);
+      final pricePerLb = double.parse(_pricePerKgController.text);
+      final mediumMultiplier = double.parse(_mediumPriorityController.text);
+      final insuranceFee = double.parse(_insuranceController.text);
+      
+      double price = baseFee + (15 * pricePerMile) + (6.6 * pricePerLb); // 15 miles, 6.6 lbs (3kg)
+      price *= mediumMultiplier;
+      price += insuranceFee;
+      
+      return price;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  Future<void> _savePricing() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    setState(() => _isLoading = true);
     
     try {
-      await Future.delayed(const Duration(seconds: 3));
+      final newRules = {
+        'baseFee': double.parse(_baseFeeController.text),
+        'pricePerMile': double.parse(_pricePerKmController.text),
+        'pricePerLb': double.parse(_pricePerKgController.text),
+        'minimumPrice': double.parse(_minimumPriceController.text),
+        'maximumPrice': double.parse(_maximumPriceController.text),
+        'priorityMultipliers': {
+          'low': double.parse(_lowPriorityController.text),
+          'medium': double.parse(_mediumPriorityController.text),
+          'high': double.parse(_highPriorityController.text),
+          'urgent': double.parse(_urgentPriorityController.text),
+        },
+        'serviceFees': {
+          'insurance': double.parse(_insuranceController.text),
+          'tracking': double.parse(_trackingController.text),
+          'express': double.parse(_expressController.text),
+          'fragile': double.parse(_fragileController.text),
+        },
+      };
       
-      if (mounted) {
-        Navigator.pop(context);
+      final success = await _pricingService.updatePricingRules(newRules);
+      
+      if (success) {
+        setState(() => _hasChanges = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${_selectedReportType.toUpperCase()} report generated for $_selectedPeriod!'),
+          const SnackBar(
+            content: Text('Pricing updated successfully!'),
             backgroundColor: Colors.green,
-            action: SnackBarAction(
-              label: 'Download',
-              onPressed: () {
-                // TODO: Implement actual download
-              },
-            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update pricing. Please check your values.'),
+            backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving pricing: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      if (mounted) setState(() => _isGenerating = false);
+      setState(() => _isLoading = false);
     }
   }
 }

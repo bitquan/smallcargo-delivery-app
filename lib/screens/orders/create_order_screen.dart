@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/design_system/app_design_system.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/order.dart' as order_model;
 import '../../models/package_item.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../services/distance_calculation_service.dart';
-import '../../widgets/common_widgets.dart';
+import '../../services/pricing_service.dart';
 import '../../widgets/photo_picker_widget.dart';
 
 class CreateOrderScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class CreateOrderScreen extends StatefulWidget {
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final PageController _pageController = PageController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final PricingService _pricingService = PricingService();
   
   int _currentStep = 0;
   final int _totalSteps = 4;
@@ -153,17 +155,29 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       );
       
       if (_distanceResult != null && _distanceResult!.success) {
-        _pricingResult = DistanceCalculationService.calculatePrice(
-          distanceInMiles: _distanceResult!.distanceInMiles,
-          durationInMinutes: _distanceResult!.durationInMinutes,
-          priority: _priority,
-          weightInPounds: _totalWeight,
-          requiresLoading: _requiresLoading,
-          requiresUnloading: _requiresUnloading,
+        // Use distance in miles and weight in pounds directly
+        final distanceMiles = _distanceResult!.distanceInMiles;
+        final weightPounds = _totalWeight; // Already in pounds
+        
+        // Check if any items require special handling
+        bool hasFragileItems = _packageItems.any((item) => 
+          item.description.toLowerCase().contains('fragile') ||
+          item.description.toLowerCase().contains('delicate') ||
+          (item.specialInstructions?.toLowerCase().contains('fragile') ?? false));
+        
+        // Calculate price using PricingService
+        final calculatedPrice = _pricingService.calculatePrice(
+          distance: distanceMiles,
+          weight: weightPounds,
+          priority: _priority.toString().split('.').last, // Convert enum to string
+          includeInsurance: true, // Always include for safety
+          includeTracking: true, // Always include tracking
+          isExpress: _priority == order_model.OrderPriority.urgent,
+          isFragile: hasFragileItems,
         );
         
         setState(() {
-          _estimatedCost = _pricingResult!.totalPrice;
+          _estimatedCost = calculatedPrice;
         });
       }
     } catch (e) {
@@ -178,24 +192,29 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   void _calculateSimpleEstimatedCost() {
-    // Simple cost calculation based on weight and priority (fallback)
-    double baseCost = 20.0; // Base cost
-    double totalWeight = _totalWeight;
-    double weightCost = totalWeight * 0.5; // $0.50 per lb (updated to match service)
+    // Simple cost calculation using PricingService with estimated values
+    final totalWeightPounds = _totalWeight; // Already in pounds
+    const estimatedDistanceMiles = 15.0; // Fallback distance estimate
     
-    // Weight-based loading and unloading costs
-    double loadingCost = _requiresLoading ? (10.0 + (totalWeight * 0.25)) : 0.0;
-    double unloadingCost = _requiresUnloading ? (10.0 + (totalWeight * 0.25)) : 0.0;
+    // Check if any items require special handling
+    bool hasFragileItems = _packageItems.any((item) => 
+      item.description.toLowerCase().contains('fragile') ||
+      item.description.toLowerCase().contains('delicate') ||
+      (item.specialInstructions?.toLowerCase().contains('fragile') ?? false));
     
-    double priorityMultiplier = switch (_priority) {
-      order_model.OrderPriority.low => 0.8,
-      order_model.OrderPriority.medium => 1.0,
-      order_model.OrderPriority.high => 1.3,
-      order_model.OrderPriority.urgent => 1.8,
-    };
+    // Calculate price using PricingService with estimates
+    final calculatedPrice = _pricingService.calculatePrice(
+      distance: estimatedDistanceMiles,
+      weight: totalWeightPounds,
+      priority: _priority.toString().split('.').last,
+      includeInsurance: true,
+      includeTracking: true,
+      isExpress: _priority == order_model.OrderPriority.urgent,
+      isFragile: hasFragileItems,
+    );
     
     setState(() {
-      _estimatedCost = (baseCost + weightCost + loadingCost + unloadingCost) * priorityMultiplier;
+      _estimatedCost = calculatedPrice;
     });
   }
 
@@ -337,103 +356,224 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF4DB6AC),
-      appBar: GradientAppBar(
-        title: 'Create Order',
+      backgroundColor: AppDesignSystem.backgroundDark,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: AppDesignSystem.primaryGradient,
+          ),
+        ),
+        title: Text(
+          'Create Order',
+          style: AppDesignSystem.headlineMedium.copyWith(
+            color: AppDesignSystem.backgroundDark,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: AppDesignSystem.backgroundDark,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: Icon(
+              Icons.close,
+              color: AppDesignSystem.backgroundDark,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Progress indicator
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: List.generate(_totalSteps, (index) {
-                final isActive = index <= _currentStep;
-                
-                return Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(right: index < _totalSteps - 1 ? 8 : 0),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: isActive ? AppConstants.primaryColor : Colors.grey[300],
-                            borderRadius: BorderRadius.circular(2),
+          // Enhanced Progress indicator with animations
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppDesignSystem.backgroundCard,
+              boxShadow: [
+                BoxShadow(
+                  color: AppDesignSystem.primaryGold.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: List.generate(_totalSteps, (index) {
+                    final isActive = index <= _currentStep;
+                    
+                    return Expanded(
+                    child: Container(
+                      margin: EdgeInsets.only(right: index < _totalSteps - 1 ? 8 : 0),
+                      child: Column(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOut,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              gradient: isActive 
+                                ? AppDesignSystem.primaryGradient
+                                : null,
+                              color: isActive 
+                                ? null 
+                                : AppDesignSystem.textMuted.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(3),
+                              boxShadow: isActive ? [
+                                BoxShadow(
+                                  color: AppDesignSystem.primaryGold.withValues(alpha: 0.4),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ] : null,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _getStepTitle(index),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                            color: isActive ? Colors.white : Colors.white70,
+                          const SizedBox(height: 8),
+                          Text(
+                            _getStepTitle(index),
+                            style: AppDesignSystem.bodySmall.copyWith(
+                              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                              color: isActive ? AppDesignSystem.primaryGold : AppDesignSystem.textMuted,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                  );
+                  }),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Step ${_currentStep + 1} of $_totalSteps',
+                  style: AppDesignSystem.bodyLarge.copyWith(
+                    color: AppDesignSystem.primaryGold,
+                    fontWeight: FontWeight.w600,
                   ),
-                );
-              }),
+                ),
+              ],
             ),
           ),
           
-          // Form content
+          // Form content with enhanced design
           Expanded(
-            child: Form(
-              key: _formKey,
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPackageDetailsStep(),
-                  _buildPickupAddressStep(),
-                  _buildDeliveryAddressStep(),
-                  _buildReviewStep(),
-                ],
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: AppDesignSystem.primaryCardDecoration,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Form(
+                  key: _formKey,
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _buildPackageDetailsStep(),
+                      _buildPickupAddressStep(),
+                      _buildDeliveryAddressStep(),
+                      _buildReviewStep(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
           
-          // Navigation buttons
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                if (_currentStep > 0)
-                  Expanded(
-                    child: GradientOutlinedButton(
-                      onPressed: _previousStep,
-                      child: const Text('Back'),
-                    ),
-                  ),
-                if (_currentStep > 0) const SizedBox(width: 16),
-                Expanded(
-                  child: GradientElevatedButton(
-                    onPressed: _isLoading ? null : (_currentStep < _totalSteps - 1 ? _nextStep : _submitOrder),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Text(
-                            _currentStep < _totalSteps - 1 ? 'Next' : 'Create Order',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                  ),
+          // Enhanced Navigation buttons with animations
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppDesignSystem.backgroundCard,
+              boxShadow: [
+                BoxShadow(
+                  color: AppDesignSystem.backgroundDark.withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, -4),
                 ),
               ],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  if (_currentStep > 0)
+                    Expanded(
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppDesignSystem.primaryGold, width: 2),
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(28),
+                            onTap: _previousStep,
+                            child: Center(
+                              child: Text(
+                                'Back',
+                                style: AppDesignSystem.bodyMedium.copyWith(
+                                  color: AppDesignSystem.primaryGold,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (_currentStep > 0) const SizedBox(width: 16),
+                  Expanded(
+                    child: Container(
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: AppDesignSystem.primaryGradient,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppDesignSystem.primaryGold.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(28),
+                          onTap: _isLoading ? null : (_currentStep < _totalSteps - 1 ? _nextStep : _submitOrder),
+                          child: Center(
+                            child: _isLoading
+                              ? SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(AppDesignSystem.backgroundDark),
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  _currentStep < _totalSteps - 1 ? 'Next' : 'Create Order',
+                                  style: AppDesignSystem.bodyMedium.copyWith(
+                                    color: AppDesignSystem.backgroundDark,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

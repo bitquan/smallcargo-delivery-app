@@ -43,38 +43,38 @@ class AppConstants {
   
   // Colors
   static const Color primaryColor = Color(0xFFFFC107); // Amber/Yellow
-  static const Color secondaryColor = Color(0xFF2C3E50);
-  static const Color accentColor = Color(0xFF00ACC1); // Cyan/Teal
-  static const Color successColor = Color(0xFF27AE60);
-  static const Color errorColor = Color(0xFFE74C3C);
-  static const Color warningColor = Color(0xFFF39C12);
+  static const Color secondaryColor = Color(0xFF000000); // Black
+  static const Color accentColor = Color(0xFFFFC107); // Yellow (removing teal)
+  static const Color successColor = Color(0xFF00FF00); // Bright green
+  static const Color errorColor = Color(0xFFFF0000); // Bright red
+  static const Color warningColor = Color(0xFFFFC107); // Yellow
   
   // Status Colors
-  static const Color pendingColor = Color(0xFFF39C12);
-  static const Color inProgressColor = Color(0xFF3498DB);
-  static const Color completedColor = Color(0xFF27AE60);
-  static const Color cancelledColor = Color(0xFFE74C3C);
+  static const Color pendingColor = Color(0xFFFFC107); // Yellow
+  static const Color inProgressColor = Color(0xFFFFC107); // Yellow
+  static const Color completedColor = Color(0xFF00FF00); // Bright green
+  static const Color cancelledColor = Color(0xFFFF0000); // Bright red
   
   // Text Styles
   static const TextStyle titleStyle = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.bold,
-    color: secondaryColor,
+    color: Color(0xFFFFC107), // Yellow
   );
   
   static const TextStyle subtitleStyle = TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.w600,
-    color: secondaryColor,
+    color: Color(0xFFFFC107), // Yellow
   );
   
   static const TextStyle bodyStyle = TextStyle(
     fontSize: 16,
-    color: secondaryColor,
+    color: Color(0xFFFFC107), // Yellow
   );
   
   static const TextStyle captionStyle = TextStyle(
     fontSize: 14,
-    color: Colors.grey,
+    color: Color(0xFFFFC107), // Yellow
   );
 }

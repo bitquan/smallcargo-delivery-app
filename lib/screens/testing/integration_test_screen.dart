@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
+import '../../services/integration_test_service.dart';
 
 class IntegrationTestScreen extends StatefulWidget {
   const IntegrationTestScreen({super.key});
@@ -9,8 +10,8 @@ class IntegrationTestScreen extends StatefulWidget {
 }
 
 class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
-  final Map<String, bool?> _testResults = {};
-  final Map<String, String> _testDetails = {};
+  final IntegrationTestService _testService = IntegrationTestService();
+  List<TestResult> _testResults = [];
   bool _isRunningTests = false;
 
   @override
@@ -23,8 +24,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.play_arrow),
-            onPressed: _isRunningTests ? null : _runAllTests,
-            tooltip: 'Run All Tests',
+            onPressed: _isRunningTests ? null : _runIntegrationTests,
+            tooltip: 'Run Integration Tests',
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -43,79 +44,13 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
             
             const SizedBox(height: 20),
             
-            // Test Categories
-            _buildTestCategory(
-              '📸 Photo Upload System',
-              [
-                'Photo Picker Service',
-                'Camera Access',
-                'Gallery Access',
-                'Firebase Upload',
-                'Image Compression',
-                'Upload Progress',
-                'Error Handling',
-              ],
-            ),
+            // Instructions
+            _buildInstructionsCard(),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             
-            _buildTestCategory(
-              '💬 Chat System',
-              [
-                'Chat Service Init',
-                'Send Text Message',
-                'Send Location',
-                'Message Delivery',
-                'Read Status',
-                'Real-time Updates',
-                'Error Recovery',
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            _buildTestCategory(
-              '🚨 Emergency System',
-              [
-                'Emergency Service',
-                'Location Access',
-                'Emergency Button',
-                'Alert Sending',
-                'Contact Notification',
-                'Emergency Types',
-                'Response Tracking',
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            _buildTestCategory(
-              '🔄 Real-time Features',
-              [
-                'Order Tracking',
-                'Status Updates',
-                'Location Sharing',
-                'Push Notifications',
-                'Offline Handling',
-                'Data Sync',
-                'Network Recovery',
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            _buildTestCategory(
-              '🎨 User Experience',
-              [
-                'Loading States',
-                'Error Messages',
-                'Navigation Flow',
-                'Responsive Design',
-                'Performance',
-                'Accessibility',
-                'Polish & Animation',
-              ],
-            ),
+            // Test Results
+            if (_testResults.isNotEmpty) _buildTestResultsCard(),
             
             const SizedBox(height: 20),
             
@@ -129,8 +64,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
   Widget _buildTestSummaryCard() {
     final totalTests = _testResults.length;
-    final passedTests = _testResults.values.where((result) => result == true).length;
-    final failedTests = _testResults.values.where((result) => result == false).length;
+    final passedTests = _testResults.where((result) => result.passed).length;
+    final failedTests = totalTests - passedTests;
     
     return Card(
       child: Padding(
@@ -178,7 +113,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                 ),
               ),
             ] else ...[
-              const Text('No tests run yet. Click "Run All Tests" to start.'),
+              const Text('No tests run yet. Click "Run Integration Tests" to start.'),
             ],
             if (_isRunningTests) ...[
               const SizedBox(height: 12),
@@ -219,7 +154,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     );
   }
 
-  Widget _buildTestCategory(String title, List<String> tests) {
+  Widget _buildInstructionsCard() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -227,36 +162,62 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              '📋 Integration Testing Instructions',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
-            ...tests.map((test) => _buildTestItem(test)),
+            const Text(
+              'This comprehensive integration testing suite will verify all core systems work together properly:',
+            ),
+            const SizedBox(height: 8),
+            const Text('• Service Initialization & Dependency Injection'),
+            const Text('• Authentication Flow (Login/Logout/Registration)'),
+            const Text('• Database Operations (CRUD & Real-time)'),
+            const Text('• Order Lifecycle Management'),
+            const Text('• Real-time Tracking & Status Updates'),
+            const Text('• Location Services & Permissions'),
+            const Text('• Route Optimization & Distance Calculation'),
+            const Text('• Distance Calculation Service'),
+            const Text('• Admin Features & Dashboard'),
+            const Text('• Error Handling & Recovery'),
+            const SizedBox(height: 12),
+            const Text(
+              'Click "Run Integration Tests" to start the comprehensive test suite.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTestItem(String testName) {
-    final result = _testResults[testName];
-    final details = _testDetails[testName];
-    
+  Widget _buildTestResultsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Test Results',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ..._testResults.map((result) => _buildTestResultItem(result)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestResultItem(TestResult result) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Icon(
-            result == null
-                ? Icons.radio_button_unchecked
-                : result
-                    ? Icons.check_circle
-                    : Icons.error,
-            color: result == null
-                ? Colors.grey
-                : result
-                    ? Colors.green
-                    : Colors.red,
+            result.passed ? Icons.check_circle : Icons.error,
+            color: result.passed ? Colors.green : Colors.red,
             size: 20,
           ),
           const SizedBox(width: 8),
@@ -264,22 +225,20 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(testName),
-                if (details != null) ...[
+                Text(
+                  result.name,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                if (result.details?.isNotEmpty ?? false) ...[
                   Text(
-                    details,
+                    result.details!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: result == true ? Colors.green : Colors.red,
+                      color: result.passed ? Colors.green : Colors.red,
                     ),
                   ),
                 ],
               ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.play_arrow, size: 16),
-            onPressed: () => _runSingleTest(testName),
-            tooltip: 'Run Test',
           ),
         ],
       ),
@@ -298,29 +257,34 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
+            const Text(
+              'After integration tests pass, use these buttons to manually test specific features:',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () => _navigateToPhotoDemo(),
-                  icon: const Icon(Icons.camera),
-                  label: const Text('Test Photos'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => _testChatSystem(),
-                  icon: const Icon(Icons.chat),
-                  label: const Text('Test Chat'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => _testEmergencySystem(),
-                  icon: const Icon(Icons.emergency),
-                  label: const Text('Test Emergency'),
+                  onPressed: () => _navigateToAdminDashboard(),
+                  icon: const Icon(Icons.admin_panel_settings),
+                  label: const Text('Test Admin Dashboard'),
                 ),
                 ElevatedButton.icon(
                   onPressed: () => _testOrderFlow(),
                   icon: const Icon(Icons.local_shipping),
-                  label: const Text('Test Orders'),
+                  label: const Text('Test Order Flow'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _testAuthentication(),
+                  icon: const Icon(Icons.login),
+                  label: const Text('Test Authentication'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _testLocation(),
+                  icon: const Icon(Icons.location_on),
+                  label: const Text('Test Location Services'),
                 ),
                 ElevatedButton.icon(
                   onPressed: () => _testNotifications(),
@@ -335,169 +299,47 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     );
   }
 
-  Future<void> _runAllTests() async {
+  Future<void> _runIntegrationTests() async {
     setState(() {
       _isRunningTests = true;
       _testResults.clear();
-      _testDetails.clear();
     });
 
-    // Simulate running tests with delays for demonstration
-    await _runPhotoUploadTests();
-    await _runChatSystemTests();
-    await _runEmergencySystemTests();
-    await _runRealtimeFeatureTests();
-    await _runUserExperienceTests();
-
-    setState(() {
-      _isRunningTests = false;
-    });
-  }
-
-  Future<void> _runPhotoUploadTests() async {
-    final tests = [
-      'Photo Picker Service',
-      'Camera Access',
-      'Gallery Access',
-      'Firebase Upload',
-      'Image Compression',
-      'Upload Progress',
-      'Error Handling',
-    ];
-
-    for (final test in tests) {
-      await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final results = await _testService.runIntegrationTests(context);
+      
       if (mounted) {
         setState(() {
-          _testResults[test] = _simulateTestResult();
-          _testDetails[test] = _getTestDetails(test);
+          _testResults = results;
+          _isRunningTests = false;
         });
+        
+        final passedTests = results.where((r) => r.passed).length;
+        final totalTests = results.length;
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Integration tests completed: $passedTests/$totalTests passed',
+              ),
+              backgroundColor: passedTests == totalTests ? Colors.green : Colors.orange,
+            ),
+          );
+        }
       }
-    }
-  }
-
-  Future<void> _runChatSystemTests() async {
-    final tests = [
-      'Chat Service Init',
-      'Send Text Message',
-      'Send Location',
-      'Message Delivery',
-      'Read Status',
-      'Real-time Updates',
-      'Error Recovery',
-    ];
-
-    for (final test in tests) {
-      await Future.delayed(const Duration(milliseconds: 500));
+    } catch (e) {
       if (mounted) {
         setState(() {
-          _testResults[test] = _simulateTestResult();
-          _testDetails[test] = _getTestDetails(test);
+          _isRunningTests = false;
         });
-      }
-    }
-  }
-
-  Future<void> _runEmergencySystemTests() async {
-    final tests = [
-      'Emergency Service',
-      'Location Access',
-      'Emergency Button',
-      'Alert Sending',
-      'Contact Notification',
-      'Emergency Types',
-      'Response Tracking',
-    ];
-
-    for (final test in tests) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
-        setState(() {
-          _testResults[test] = _simulateTestResult();
-          _testDetails[test] = _getTestDetails(test);
-        });
-      }
-    }
-  }
-
-  Future<void> _runRealtimeFeatureTests() async {
-    final tests = [
-      'Order Tracking',
-      'Status Updates',
-      'Location Sharing',
-      'Push Notifications',
-      'Offline Handling',
-      'Data Sync',
-      'Network Recovery',
-    ];
-
-    for (final test in tests) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
-        setState(() {
-          _testResults[test] = _simulateTestResult();
-          _testDetails[test] = _getTestDetails(test);
-        });
-      }
-    }
-  }
-
-  Future<void> _runUserExperienceTests() async {
-    final tests = [
-      'Loading States',
-      'Error Messages',
-      'Navigation Flow',
-      'Responsive Design',
-      'Performance',
-      'Accessibility',
-      'Polish & Animation',
-    ];
-
-    for (final test in tests) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
-        setState(() {
-          _testResults[test] = _simulateTestResult();
-          _testDetails[test] = _getTestDetails(test);
-        });
-      }
-    }
-  }
-
-  Future<void> _runSingleTest(String testName) async {
-    setState(() {
-      _testResults[testName] = null; // Reset
-    });
-
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
-    if (mounted) {
-      setState(() {
-        _testResults[testName] = _simulateTestResult();
-        _testDetails[testName] = _getTestDetails(testName);
-      });
-    }
-  }
-
-  bool _simulateTestResult() {
-    // Simulate 85% pass rate
-    return DateTime.now().millisecond % 10 < 8;
-  }
-
-  String _getTestDetails(String testName) {
-    final isPass = _testResults[testName] ?? false;
-    if (isPass) {
-      return 'Test passed successfully';
-    } else {
-      switch (testName) {
-        case 'Camera Access':
-          return 'Browser camera permission required';
-        case 'Firebase Upload':
-          return 'Check Firebase Storage configuration';
-        case 'Push Notifications':
-          return 'FCM token registration needed';
-        default:
-          return 'Test failed - needs investigation';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error running tests: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -505,38 +347,37 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   void _resetTests() {
     setState(() {
       _testResults.clear();
-      _testDetails.clear();
       _isRunningTests = false;
     });
   }
 
-  void _navigateToPhotoDemo() {
-    Navigator.pushNamed(context, '/photo-picker-demo');
-  }
-
-  void _testChatSystem() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Opening chat test - Create an order to test messaging'),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
-
-  void _testEmergencySystem() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Testing emergency system - Check emergency button functionality'),
-        backgroundColor: Colors.orange,
-      ),
-    );
+  void _navigateToAdminDashboard() {
+    Navigator.pushNamed(context, '/admin-dashboard');
   }
 
   void _testOrderFlow() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Testing order flow - Navigate to create order'),
+        content: Text('Navigate to Customer Dashboard to test order creation flow'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  void _testAuthentication() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Navigate to Login/Register screens to test authentication'),
         backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _testLocation() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Check browser location permission in address bar'),
+        backgroundColor: Colors.orange,
       ),
     );
   }
@@ -544,7 +385,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   void _testNotifications() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Testing notifications - Check browser permissions'),
+        content: Text('Check browser notification permission in address bar'),
         backgroundColor: Colors.purple,
       ),
     );
