@@ -16,9 +16,6 @@ import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 
-import 'screens/demo/photo_picker_demo_screen.dart';
-import 'screens/testing/integration_test_screen.dart';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -59,8 +56,6 @@ class SmallCargoApp extends StatelessWidget {
         routes: {
           AppConstants.homeRoute: (context) => const HomeScreen(),
           AppConstants.loginRoute: (context) => const LoginScreen(),
-          '/photo-picker-demo': (context) => const PhotoPickerExample(),
-          '/integration-test': (context) => const IntegrationTestScreen(),
         },
       ),
     );
@@ -81,10 +76,16 @@ class AuthWrapper extends StatelessWidget {
           return const SplashScreen();
         }
         
+        // Check for authentication error states
+        if (snapshot.hasError) {
+          return const LoginScreen();
+        }
+        
         if (snapshot.hasData && snapshot.data != null) {
           return const HomeScreen();
         }
         
+        // User is signed out - show login screen
         return const LoginScreen();
       },
     );

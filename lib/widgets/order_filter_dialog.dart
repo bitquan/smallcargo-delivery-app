@@ -226,7 +226,7 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
           _selectedPriority = selected ? priority : null;
         });
       },
-      selectedColor: AppConstants.primaryColor.withOpacity(0.2),
+      selectedColor: AppConstants.primaryColor.withValues(alpha: 0.2),
       checkmarkColor: AppConstants.primaryColor,
     );
   }
@@ -241,7 +241,7 @@ class _OrderFilterDialogState extends State<OrderFilterDialog> {
           _sortBy = value;
         });
       },
-      selectedColor: AppConstants.primaryColor.withOpacity(0.2),
+      selectedColor: AppConstants.primaryColor.withValues(alpha: 0.2),
       checkmarkColor: AppConstants.primaryColor,
     );
   }

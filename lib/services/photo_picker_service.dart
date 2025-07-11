@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -321,15 +320,26 @@ class _UploadProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Dialog(
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.dialogTheme.backgroundColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(),
+            CircularProgressIndicator(
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: 16),
-            const Text('Uploading photo...'),
+            Text(
+              'Uploading photo...',
+              style: theme.dialogTheme.contentTextStyle,
+            ),
             const SizedBox(height: 16),
             FutureBuilder<String?>(
               future: future,
@@ -414,10 +424,11 @@ class PhotoPreviewWidget extends StatelessWidget {
       );
     } else {
       return Container(
-        color: Colors.grey[200],
-        child: const Icon(
+        color: Colors.grey[100],
+        child: Icon(
           Icons.image,
-          color: Colors.grey,
+          color: Colors.grey[600],
+          size: size * 0.4,
         ),
       );
     }

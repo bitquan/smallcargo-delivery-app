@@ -139,7 +139,17 @@ class AuthService {
 
   // Sign out
   Future<void> signOut() async {
-    await _auth.signOut();
+    try {
+      // Clear any cached user data
+      await _auth.signOut();
+      
+      // Force reload to ensure clean state
+      await Future.delayed(const Duration(milliseconds: 100));
+    } catch (e) {
+      print('Error during sign out: $e');
+      // Even if there's an error, try to sign out
+      await _auth.signOut();
+    }
   }
 
   // Reset password

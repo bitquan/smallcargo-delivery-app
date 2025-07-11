@@ -1061,20 +1061,300 @@ class DatabaseService {
     }
   }
 
-  /// Advanced search functionality
-  Future<List<order_model.Order>> searchOrdersAdvanced(String query) async {
+  // Enhanced Analytics for Dashboard
+  Future<Map<String, dynamic>> getChartAnalytics() async {
     try {
-      // Search by tracking number or description
-      final trackingSnapshot = await ordersCollection
-          .where('trackingNumber', isGreaterThanOrEqualTo: query.toUpperCase())
-          .where('trackingNumber', isLessThan: '${query.toUpperCase()}z')
-          .get();
-
-      return trackingSnapshot.docs
+      final ordersSnapshot = await ordersCollection.get();
+      final orders = ordersSnapshot.docs
           .map((doc) => order_model.Order.fromSnapshot(doc))
           .toList();
+
+      // Daily revenue for last 30 days
+      final dailyRevenue = <String, double>{};
+      final dailyOrderCounts = <String, int>{};
+      
+      for (int i = 29; i >= 0; i--) {
+        final date = DateTime.now().subtract(Duration(days: i));
+        final dateKey = '${date.month}/${date.day}';
+        
+        final dayOrders = orders.where((order) {
+          return order.createdAt.year == date.year &&
+                 order.createdAt.month == date.month &&
+                 order.createdAt.day == date.day;
+        }).toList();
+        
+        dailyOrderCounts[dateKey] = dayOrders.length;
+        dailyRevenue[dateKey] = dayOrders
+            .where((order) => order.status == order_model.OrderStatus.delivered)
+            .fold(0.0, (sum, order) => sum + (order.actualCost ?? order.estimatedCost));
+      }
+
+      // Weekly analytics for last 12 weeks
+      final weeklyData = <String, Map<String, dynamic>>{};
+      for (int i = 11; i >= 0; i--) {
+        final weekStart = DateTime.now().subtract(Duration(days: (i * 7) + DateTime.now().weekday - 1));
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        final weekKey = 'Week ${12 - i}';
+        
+        final weekOrders = orders.where((order) {
+          return order.createdAt.isAfter(weekStart) && order.createdAt.isBefore(weekEnd.add(const Duration(days: 1)));
+        }).toList();
+        
+        weeklyData[weekKey] = {
+          'orders': weekOrders.length,
+          'revenue': weekOrders
+              .where((order) => order.status == order_model.OrderStatus.delivered)
+              .fold(0.0, (sum, order) => sum + (order.actualCost ?? order.estimatedCost)),
+          'avgDeliveryTime': _calculateAvgDeliveryTime(weekOrders),
+        };
+      }
+
+      // Monthly analytics for last 12 months
+      final monthlyData = <String, Map<String, dynamic>>{};
+      for (int i = 11; i >= 0; i--) {
+        final date = DateTime(DateTime.now().year, DateTime.now().month - i, 1);
+        final monthKey = '${_getMonthName(date.month)} ${date.year}';
+        
+        final monthOrders = orders.where((order) {
+          return order.createdAt.year == date.year && order.createdAt.month == date.month;
+        }).toList();
+        
+        monthlyData[monthKey] = {
+          'orders': monthOrders.length,
+          'revenue': monthOrders
+              .where((order) => order.status == order_model.OrderStatus.delivered)
+              .fold(0.0, (sum, order) => sum + (order.actualCost ?? order.estimatedCost)),
+          'newCustomers': await _getNewCustomersForMonth(date),
+        };
+      }
+
+      // Top performing drivers
+      final driverPerformance = await _getDriverPerformanceData();
+
+      // Customer satisfaction metrics
+      final satisfactionMetrics = await _getCustomerSatisfactionMetrics();
+
+      return {
+        'dailyRevenue': dailyRevenue,
+        'dailyOrderCounts': dailyOrderCounts,
+        'weeklyData': weeklyData,
+        'monthlyData': monthlyData,
+        'driverPerformance': driverPerformance,
+        'satisfactionMetrics': satisfactionMetrics,
+        'deliveryTimeAnalysis': await _getDeliveryTimeAnalysis(),
+        'geographicAnalysis': await _getGeographicAnalysis(),
+      };
     } catch (e) {
-      throw DatabaseException('Failed to search orders: $e');
+      throw DatabaseException('Failed to get chart analytics: $e');
+    }
+  }
+
+  Future<double> _calculateAvgDeliveryTime(List<order_model.Order> orders) async {
+    final deliveredOrders = orders.where((order) => 
+        order.status == order_model.OrderStatus.delivered && 
+        order.deliveryTime != null).toList();
+    
+    if (deliveredOrders.isEmpty) return 0.0;
+    
+    final totalMinutes = deliveredOrders.fold(0.0, (sum, order) {
+      final deliveryTime = order.deliveryTime!.difference(order.createdAt).inMinutes;
+      return sum + deliveryTime.toDouble();
+    });
+    
+    return totalMinutes / deliveredOrders.length;
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
+
+  Future<int> _getNewCustomersForMonth(DateTime date) async {
+    try {
+      final usersSnapshot = await usersCollection
+          .where('role', isEqualTo: 'customer')
+          .get();
+      
+      final users = usersSnapshot.docs.map((doc) => User.fromSnapshot(doc)).toList();
+      
+      return users.where((user) {
+        return user.createdAt.year == date.year && user.createdAt.month == date.month;
+      }).length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getDriverPerformanceData() async {
+    try {
+      final driversSnapshot = await usersCollection
+          .where('role', isEqualTo: 'driver')
+          .get();
+      
+      final drivers = driversSnapshot.docs.map((doc) => User.fromSnapshot(doc)).toList();
+      final performance = <Map<String, dynamic>>[];
+      
+      for (final driver in drivers) {
+        final driverOrders = await ordersCollection
+            .where('driverId', isEqualTo: driver.id)
+            .get();
+        
+        final orders = driverOrders.docs
+            .map((doc) => order_model.Order.fromSnapshot(doc))
+            .toList();
+        
+        final deliveredOrders = orders.where((order) => order.status == order_model.OrderStatus.delivered).toList();
+        final totalRevenue = deliveredOrders.fold(0.0, (sum, order) => sum + (order.actualCost ?? order.estimatedCost));
+        
+        performance.add({
+          'driverId': driver.id,
+          'name': driver.name,
+          'totalDeliveries': deliveredOrders.length,
+          'totalRevenue': totalRevenue,
+          'completionRate': orders.isNotEmpty ? (deliveredOrders.length / orders.length * 100) : 0.0,
+        });
+      }
+      
+      // Sort by total deliveries
+      performance.sort((a, b) => b['totalDeliveries'].compareTo(a['totalDeliveries']));
+      return performance.take(10).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> _getCustomerSatisfactionMetrics() async {
+    try {
+      // Since rating is not available in the current Order model,
+      // we'll use completion rate and delivery time as satisfaction indicators
+      final ordersSnapshot = await ordersCollection.get();
+      final orders = ordersSnapshot.docs
+          .map((doc) => order_model.Order.fromSnapshot(doc))
+          .toList();
+      
+      final deliveredOrders = orders.where((order) => order.status == order_model.OrderStatus.delivered).toList();
+      
+      if (orders.isEmpty) {
+        return {
+          'completionRate': 0.0,
+          'onTimeDeliveryRate': 0.0,
+          'totalOrders': 0,
+        };
+      }
+      
+      final completionRate = deliveredOrders.length / orders.length * 100;
+      
+      final onTimeDeliveries = deliveredOrders.where((order) {
+        if (order.deliveryTime == null) return false;
+        final deliveryTime = order.deliveryTime!.difference(order.createdAt).inHours;
+        return deliveryTime <= 24; // Consider on-time if delivered within 24 hours
+      }).length;
+      
+      final onTimeRate = deliveredOrders.isNotEmpty ? (onTimeDeliveries / deliveredOrders.length * 100) : 0.0;
+      
+      return {
+        'completionRate': completionRate,
+        'onTimeDeliveryRate': onTimeRate,
+        'totalOrders': orders.length,
+      };
+    } catch (e) {
+      return {
+        'completionRate': 0.0,
+        'onTimeDeliveryRate': 0.0,
+        'totalOrders': 0,
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _getDeliveryTimeAnalysis() async {
+    try {
+      final ordersSnapshot = await ordersCollection.get();
+      final orders = ordersSnapshot.docs
+          .map((doc) => order_model.Order.fromSnapshot(doc))
+          .toList();
+      
+      final deliveredOrders = orders.where((order) => 
+          order.status == order_model.OrderStatus.delivered && 
+          order.deliveryTime != null).toList();
+      
+      if (deliveredOrders.isEmpty) {
+        return {
+          'averageDeliveryTime': 0.0,
+          'fastestDelivery': 0.0,
+          'slowestDelivery': 0.0,
+          'onTimeDeliveryRate': 0.0,
+        };
+      }
+      
+      final deliveryTimes = deliveredOrders.map((order) {
+        return order.deliveryTime!.difference(order.createdAt).inMinutes.toDouble();
+      }).toList();
+      
+      deliveryTimes.sort();
+      
+      final avgDeliveryTime = deliveryTimes.fold(0.0, (sum, time) => sum + time) / deliveryTimes.length;
+      final onTimeDeliveries = deliveredOrders.where((order) {
+        final deliveryTime = order.deliveryTime!.difference(order.createdAt).inHours;
+        return deliveryTime <= 24; // Consider on-time if delivered within 24 hours
+      }).length;
+      
+      return {
+        'averageDeliveryTime': avgDeliveryTime,
+        'fastestDelivery': deliveryTimes.first,
+        'slowestDelivery': deliveryTimes.last,
+        'onTimeDeliveryRate': (onTimeDeliveries / deliveredOrders.length * 100),
+      };
+    } catch (e) {
+      return {
+        'averageDeliveryTime': 0.0,
+        'fastestDelivery': 0.0,
+        'slowestDelivery': 0.0,
+        'onTimeDeliveryRate': 0.0,
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _getGeographicAnalysis() async {
+    try {
+      final ordersSnapshot = await ordersCollection.get();
+      final orders = ordersSnapshot.docs
+          .map((doc) => order_model.Order.fromSnapshot(doc))
+          .toList();
+      
+      final cityDistribution = <String, int>{};
+      final regionRevenue = <String, double>{};
+      
+      for (final order in orders) {
+        final city = order.deliveryAddress.city;
+        cityDistribution[city] = (cityDistribution[city] ?? 0) + 1;
+        
+        if (order.status == order_model.OrderStatus.delivered) {
+          regionRevenue[city] = (regionRevenue[city] ?? 0.0) + (order.actualCost ?? order.estimatedCost);
+        }
+      }
+      
+      // Sort cities by order count
+      final sortedCities = cityDistribution.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      
+      return {
+        'cityDistribution': Map.fromEntries(sortedCities.take(10)),
+        'regionRevenue': regionRevenue,
+        'topCities': sortedCities.take(5).map((e) => {
+          'city': e.key,
+          'orders': e.value,
+          'revenue': regionRevenue[e.key] ?? 0.0,
+        }).toList(),
+      };
+    } catch (e) {
+      return {
+        'cityDistribution': <String, int>{},
+        'regionRevenue': <String, double>{},
+        'topCities': <Map<String, dynamic>>[],
+      };
     }
   }
 

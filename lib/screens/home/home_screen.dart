@@ -189,7 +189,7 @@ class DashboardTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: AppConstants.primaryColor.withOpacity(0.3),
+                        color: AppConstants.primaryColor.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -203,7 +203,7 @@ class DashboardTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
@@ -332,36 +332,6 @@ class DashboardTab extends StatelessWidget {
                   ],
                 ),
                 
-                // Debug row (for development only)
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildQuickActionCard(
-                        icon: Icons.bug_report,
-                        title: 'Integration Tests',
-                        subtitle: 'Test features',
-                        color: const Color(0xFF9C27B0),
-                        onTap: () {
-                          Navigator.pushNamed(context, '/integration-test');
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildQuickActionCard(
-                        icon: Icons.camera_alt,
-                        title: 'Photo Demo',
-                        subtitle: 'Test photos',
-                        color: const Color(0xFF607D8B),
-                        onTap: () {
-                          Navigator.pushNamed(context, '/photo-picker-demo');
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                
                 const SizedBox(height: 30),
                 
                 // Recent Orders
@@ -382,7 +352,7 @@ class DashboardTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -482,7 +452,7 @@ class DashboardTab extends StatelessWidget {
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: AppConstants.primaryColor.withOpacity(0.1),
+                                      color: AppConstants.primaryColor.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Icon(
@@ -520,7 +490,7 @@ class DashboardTab extends StatelessWidget {
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: _getStatusColor(order.status).withOpacity(0.1),
+                                            color: _getStatusColor(order.status).withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Text(
@@ -543,7 +513,7 @@ class DashboardTab extends StatelessWidget {
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                           if (snapshot.data!.length > 3) ...[
                             const SizedBox(height: 16),
                             TextButton(
@@ -574,7 +544,7 @@ class DashboardTab extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         AppConstants.accentColor,
-                        AppConstants.accentColor.withOpacity(0.8),
+                        AppConstants.accentColor.withValues(alpha: 0.8),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -582,7 +552,7 @@ class DashboardTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: AppConstants.accentColor.withOpacity(0.3),
+                        color: AppConstants.accentColor.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -596,7 +566,7 @@ class DashboardTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
@@ -706,7 +676,7 @@ class DashboardTab extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -718,7 +688,7 @@ class DashboardTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -797,7 +767,7 @@ class _OrdersTabState extends State<OrdersTab> {
                         _selectedFilter = filter;
                       });
                     },
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
                     selectedColor: AppConstants.primaryColor,
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : Colors.white70,
@@ -825,14 +795,14 @@ class _OrdersTabState extends State<OrdersTab> {
                         Icon(
                           Icons.inbox_outlined,
                           size: 64,
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No orders found',
                           style: TextStyle(
                             fontSize: 18,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -840,7 +810,7 @@ class _OrdersTabState extends State<OrdersTab> {
                         Text(
                           'Create your first order to get started',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -865,11 +835,11 @@ class _OrdersTabState extends State<OrdersTab> {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -880,7 +850,7 @@ class _OrdersTabState extends State<OrdersTab> {
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            color: AppConstants.primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(

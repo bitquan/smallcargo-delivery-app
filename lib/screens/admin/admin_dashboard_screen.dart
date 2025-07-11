@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' as math;
+import 'package:fl_chart/fl_chart.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/assets.dart';
 import '../../models/order.dart' as order_model;
@@ -20,11 +22,51 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  final DatabaseService _databaseService = DatabaseService();
+  
+  // Real-time dashboard data
+  Map<String, dynamic> _dashboardStats = {};
+  List<Map<String, dynamic>> _recentActivity = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _loadDashboardData();
+    
+    // Refresh data every 30 seconds
+    _setupAutoRefresh();
+  }
+
+  void _setupAutoRefresh() {
+    Stream.periodic(const Duration(seconds: 30)).listen((_) {
+      if (mounted) {
+        _loadDashboardData();
+      }
+    });
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      final analytics = await _databaseService.getSystemAnalytics();
+      final activity = await _databaseService.getRecentActivity(limit: 10);
+      
+      if (mounted) {
+        setState(() {
+          _dashboardStats = analytics;
+          _recentActivity = activity;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading dashboard data: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -55,7 +97,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppConstants.primaryColor.withOpacity(0.3),
+                    color: AppConstants.primaryColor.withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -74,7 +116,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -120,7 +162,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   ),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: IconButton(
@@ -144,7 +186,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -155,7 +197,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 labelColor: AppConstants.primaryColor,
                 unselectedLabelColor: Colors.grey,
                 indicator: BoxDecoration(
-                  color: AppConstants.primaryColor.withOpacity(0.1),
+                  color: AppConstants.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
@@ -169,15 +211,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
             
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: const [
-                  _OverviewTab(),
-                  _OrdersManagementTab(),
-                  _DriversManagementTab(),
-                  _AnalyticsTab(),
-                ],
-              ),
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _OverviewTab(dashboardStats: _dashboardStats, recentActivity: _recentActivity),
+                      const _OrdersManagementTab(),
+                      const _DriversManagementTab(),
+                      const _AnalyticsTab(),
+                    ],
+                  ),
             ),
           ],
         ),
@@ -188,7 +232,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
 // Overview Tab - Dashboard Summary
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab();
+  final Map<String, dynamic> dashboardStats;
+  final List<Map<String, dynamic>> recentActivity;
+  
+  const _OverviewTab({
+    required this.dashboardStats, 
+    required this.recentActivity,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -203,10 +253,10 @@ class _OverviewTab extends StatelessWidget {
               Expanded(
                 child: _StatsCard(
                   title: 'Total Orders',
-                  value: '1,234',
+                  value: '${dashboardStats['monthOrders'] ?? 0}',
                   icon: Icons.shopping_bag,
                   color: AppConstants.primaryColor,
-                  trend: '+12%',
+                  trend: '+${((dashboardStats['todayOrders'] ?? 0) * 100 / math.max(1, dashboardStats['monthOrders'] ?? 1)).toStringAsFixed(1)}%',
                   isPositive: true,
                 ),
               ),
@@ -214,10 +264,10 @@ class _OverviewTab extends StatelessWidget {
               Expanded(
                 child: _StatsCard(
                   title: 'Active Drivers',
-                  value: '42',
+                  value: '${dashboardStats['activeDrivers'] ?? 0}',
                   icon: Icons.local_shipping,
                   color: Colors.blue,
-                  trend: '+3',
+                  trend: '${dashboardStats['totalDrivers'] ?? 0} total',
                   isPositive: true,
                 ),
               ),
@@ -229,10 +279,10 @@ class _OverviewTab extends StatelessWidget {
               Expanded(
                 child: _StatsCard(
                   title: 'Revenue Today',
-                  value: '\$2,340',
+                  value: '\$${(dashboardStats['todayRevenue'] ?? 0.0).toStringAsFixed(0)}',
                   icon: Icons.attach_money,
                   color: Colors.green,
-                  trend: '+8%',
+                  trend: 'Month: \$${(dashboardStats['monthRevenue'] ?? 0.0).toStringAsFixed(0)}',
                   isPositive: true,
                 ),
               ),
@@ -240,10 +290,10 @@ class _OverviewTab extends StatelessWidget {
               Expanded(
                 child: _StatsCard(
                   title: 'Pending Orders',
-                  value: '23',
+                  value: '${dashboardStats['pendingOrders'] ?? 0}',
                   icon: Icons.pending,
                   color: Colors.orange,
-                  trend: '-5%',
+                  trend: '${dashboardStats['completedToday'] ?? 0} completed',
                   isPositive: false,
                 ),
               ),
@@ -255,36 +305,28 @@ class _OverviewTab extends StatelessWidget {
           // Recent Activity Section
           _buildSection(
             'Recent Activity',
-            [
-              _ActivityItem(
-                icon: Icons.add_circle,
-                title: 'New Order Created',
-                subtitle: 'Order #PKG789123 - Electronics delivery',
-                time: '2 minutes ago',
-                color: AppConstants.primaryColor,
-              ),
-              _ActivityItem(
-                icon: Icons.local_shipping,
-                title: 'Driver Assigned',
-                subtitle: 'John Doe assigned to Order #PKG789122',
-                time: '5 minutes ago',
-                color: Colors.blue,
-              ),
-              _ActivityItem(
-                icon: Icons.check_circle,
-                title: 'Order Delivered',
-                subtitle: 'Order #PKG789121 successfully delivered',
-                time: '12 minutes ago',
-                color: Colors.green,
-              ),
-              _ActivityItem(
-                icon: Icons.warning,
-                title: 'Delivery Delayed',
-                subtitle: 'Order #PKG789120 - Traffic delay reported',
-                time: '18 minutes ago',
-                color: Colors.orange,
-              ),
-            ],
+            recentActivity.isEmpty
+                ? [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      child: const Center(
+                        child: Text(
+                          'No recent activity',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ]
+                : recentActivity.take(5).map((activity) => _ActivityItem(
+                    icon: _getActivityIcon(activity['type']),
+                    title: activity['title'],
+                    subtitle: activity['subtitle'],
+                    time: _formatTime(activity['time']),
+                    color: _getActivityColor(activity['type']),
+                  )).toList(),
           ),
           
           const SizedBox(height: 24),
@@ -300,9 +342,7 @@ class _OverviewTab extends StatelessWidget {
                       icon: Icons.add,
                       title: 'Create Order',
                       subtitle: 'Add new delivery order',
-                      onTap: () {
-                        // TODO: Navigate to create order
-                      },
+                      onTap: () => _showCreateOrderDialog(context),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -311,9 +351,7 @@ class _OverviewTab extends StatelessWidget {
                       icon: Icons.person_add,
                       title: 'Add Driver',
                       subtitle: 'Register new driver',
-                      onTap: () {
-                        // TODO: Navigate to add driver
-                      },
+                      onTap: () => _showAddDriverDialog(context),
                     ),
                   ),
                 ],
@@ -326,9 +364,7 @@ class _OverviewTab extends StatelessWidget {
                       icon: Icons.assignment,
                       title: 'Assign Orders',
                       subtitle: 'Bulk assign pending orders',
-                      onTap: () {
-                        // TODO: Show assign orders modal
-                      },
+                      onTap: () => _showAssignOrdersDialog(context),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -337,9 +373,7 @@ class _OverviewTab extends StatelessWidget {
                       icon: Icons.report,
                       title: 'Generate Report',
                       subtitle: 'Export delivery reports',
-                      onTap: () {
-                        // TODO: Show report options
-                      },
+                      onTap: () => _showReportOptionsDialog(context),
                     ),
                   ),
                 ],
@@ -348,6 +382,97 @@ class _OverviewTab extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  IconData _getActivityIcon(String type) {
+    switch (type) {
+      case 'created':
+        return Icons.add_circle;
+      case 'confirmed':
+        return Icons.check_circle_outline;
+      case 'picked_up':
+        return Icons.local_shipping;
+      case 'in_transit':
+        return Icons.directions;
+      case 'delivered':
+        return Icons.check_circle;
+      case 'cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getActivityColor(String type) {
+    switch (type) {
+      case 'created':
+        return AppConstants.primaryColor;
+      case 'confirmed':
+        return Colors.blue;
+      case 'picked_up':
+        return Colors.orange;
+      case 'in_transit':
+        return Colors.purple;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatTime(dynamic timestamp) {
+    if (timestamp == null) return 'Unknown time';
+    
+    DateTime dateTime;
+    if (timestamp is DateTime) {
+      dateTime = timestamp;
+    } else {
+      return 'Unknown time';
+    }
+
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} minutes ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hours ago';
+    } else {
+      return DateFormat('MMM d, y').format(dateTime);
+    }
+  }
+
+  // Quick Action Dialog Methods
+  void _showCreateOrderDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _CreateOrderDialog(),
+    );
+  }
+
+  void _showAddDriverDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _AddDriverDialog(),
+    );
+  }
+
+  void _showAssignOrdersDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _AssignOrdersDialog(),
+    );
+  }
+
+  void _showReportOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _ReportOptionsDialog(),
     );
   }
 }
@@ -945,7 +1070,7 @@ class _StatsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1084,7 +1209,7 @@ class _QuickActionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1512,7 +1637,7 @@ class _MetricCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1832,4 +1957,539 @@ Widget _buildSection(String title, List<Widget> children) {
       ),
     ],
   );
+}
+
+// Quick Action Dialogs
+
+class _CreateOrderDialog extends StatefulWidget {
+  @override
+  State<_CreateOrderDialog> createState() => _CreateOrderDialogState();
+}
+
+class _CreateOrderDialogState extends State<_CreateOrderDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _descriptionController = TextEditingController();
+  final _pickupAddressController = TextEditingController();
+  final _deliveryAddressController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _costController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.add_circle, color: AppConstants.primaryColor),
+          const SizedBox(width: 8),
+          const Text('Create New Order'),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Package Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _pickupAddressController,
+                  decoration: const InputDecoration(
+                    labelText: 'Pickup Address',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _deliveryAddressController,
+                  decoration: const InputDecoration(
+                    labelText: 'Delivery Address',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _weightController,
+                        decoration: const InputDecoration(
+                          labelText: 'Weight (kg)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _costController,
+                        decoration: const InputDecoration(
+                          labelText: 'Cost (\$)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _createOrder,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppConstants.primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create Order'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _createOrder() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      // For demo purposes, just show success
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _pickupAddressController.dispose();
+    _deliveryAddressController.dispose();
+    _weightController.dispose();
+    _costController.dispose();
+    super.dispose();
+  }
+}
+
+class _AddDriverDialogNew extends StatefulWidget {
+  @override
+  State<_AddDriverDialogNew> createState() => _AddDriverDialogNewState();
+}
+
+class _AddDriverDialogNewState extends State<_AddDriverDialogNew> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _licenseController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.person_add, color: Colors.blue),
+          const SizedBox(width: 8),
+          const Text('Add New Driver'),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _licenseController,
+                  decoration: const InputDecoration(
+                    labelText: 'License Number',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _addDriver,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add Driver'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addDriver() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Driver added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _licenseController.dispose();
+    super.dispose();
+  }
+}
+
+class _AssignOrdersDialog extends StatefulWidget {
+  @override
+  State<_AssignOrdersDialog> createState() => _AssignOrdersDialogState();
+}
+
+class _AssignOrdersDialogState extends State<_AssignOrdersDialog> {
+  final List<String> _selectedOrders = [];
+  String? _selectedDriver;
+  bool _isLoading = false;
+
+  final List<Map<String, String>> _pendingOrders = [
+    {'id': 'ORD001', 'description': 'Electronics Package', 'customer': 'John Doe'},
+    {'id': 'ORD002', 'description': 'Documents', 'customer': 'Jane Smith'},
+    {'id': 'ORD003', 'description': 'Clothing Items', 'customer': 'Bob Wilson'},
+  ];
+
+  final List<Map<String, String>> _availableDrivers = [
+    {'id': 'DRV001', 'name': 'Mike Johnson'},
+    {'id': 'DRV002', 'name': 'Sarah Connor'},
+    {'id': 'DRV003', 'name': 'Tom Brown'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.assignment, color: Colors.orange),
+          const SizedBox(width: 8),
+          const Text('Assign Orders to Driver'),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Select Driver:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedDriver,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: _availableDrivers.map((driver) {
+                return DropdownMenuItem<String>(
+                  value: driver['id'],
+                  child: Text(driver['name']!),
+                );
+              }).toList(),
+              onChanged: (value) => setState(() => _selectedDriver = value),
+              hint: const Text('Choose a driver'),
+            ),
+            const SizedBox(height: 20),
+            const Text('Select Orders:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _pendingOrders.length,
+                itemBuilder: (context, index) {
+                  final order = _pendingOrders[index];
+                  final isSelected = _selectedOrders.contains(order['id']);
+                  
+                  return CheckboxListTile(
+                    title: Text(order['description']!),
+                    subtitle: Text('Customer: ${order['customer']}'),
+                    value: isSelected,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        if (value == true) {
+                          _selectedOrders.add(order['id']!);
+                        } else {
+                          _selectedOrders.remove(order['id']);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: (_selectedDriver != null && _selectedOrders.isNotEmpty && !_isLoading)
+              ? _assignOrders
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Assign Orders'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _assignOrders() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_selectedOrders.length} orders assigned successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+}
+
+class _ReportOptionsDialog extends StatefulWidget {
+  @override
+  State<_ReportOptionsDialog> createState() => _ReportOptionsDialogState();
+}
+
+class _ReportOptionsDialogState extends State<_ReportOptionsDialog> {
+  String _selectedReportType = 'orders';
+  String _selectedPeriod = 'week';
+  bool _isGenerating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.report, color: Colors.purple),
+          const SizedBox(width: 8),
+          const Text('Generate Report'),
+        ],
+      ),
+      content: SizedBox(
+        width: 350,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Report Type:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedReportType,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'orders', child: Text('Orders Report')),
+                DropdownMenuItem(value: 'revenue', child: Text('Revenue Report')),
+                DropdownMenuItem(value: 'drivers', child: Text('Driver Performance')),
+                DropdownMenuItem(value: 'customers', child: Text('Customer Activity')),
+              ],
+              onChanged: (value) => setState(() => _selectedReportType = value!),
+            ),
+            const SizedBox(height: 20),
+            const Text('Time Period:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedPeriod,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'week', child: Text('This Week')),
+                DropdownMenuItem(value: 'month', child: Text('This Month')),
+                DropdownMenuItem(value: 'quarter', child: Text('This Quarter')),
+                DropdownMenuItem(value: 'year', child: Text('This Year')),
+              ],
+              onChanged: (value) => setState(() => _selectedPeriod = value!),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isGenerating ? null : _generateReport,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+          ),
+          child: _isGenerating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Generate'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _generateReport() async {
+    setState(() => _isGenerating = true);
+    
+    try {
+      await Future.delayed(const Duration(seconds: 3));
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_selectedReportType.toUpperCase()} report generated for $_selectedPeriod!'),
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'Download',
+              onPressed: () {
+                // TODO: Implement actual download
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
 }

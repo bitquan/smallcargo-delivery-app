@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/assets.dart';
 import '../../services/auth_service.dart';
-import '../../services/database_service.dart';
-import '../../models/user.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,6 +22,25 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoginMode = true;
   bool _obscurePassword = true;
   String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _resetForm();
+  }
+
+  void _resetForm() {
+    setState(() {
+      _emailController.clear();
+      _passwordController.clear();
+      _nameController.clear();
+      _phoneController.clear();
+      _isLoading = false;
+      _isLoginMode = true;
+      _obscurePassword = true;
+      _errorMessage = '';
+    });
+  }
 
   @override
   void dispose() {
@@ -57,149 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _nameController.text.trim(),
           phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
         );
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _submitAsAdmin() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      
-      // Try to sign in first
-      try {
-        await authService.signInWithEmailAndPassword(
-          'sayquanmclaurin@gmail.com',
-          'Reckless@13',
-        );
-        
-        // Always ensure the user has admin role after signing in
-        final user = authService.currentUser;
-        if (user != null) {
-          await DatabaseService().updateUserRole(user.id, UserRole.admin);
-          // Force refresh auth state to get updated role
-          await authService.refreshUser();
-        }
-      } catch (e) {
-        // If sign in fails, create the admin account
-        await authService.registerWithEmailAndPassword(
-          'sayquanmclaurin@gmail.com',
-          'Reckless@13',
-          'Admin User',
-        );
-        
-        // Promote to admin role
-        final user = authService.currentUser;
-        if (user != null) {
-          await DatabaseService().updateUserRole(user.id, UserRole.admin);
-          // Force refresh auth state to get updated role
-          await authService.refreshUser();
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _clearAndRecreateUsers() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      
-      // Sign out current user first
-      await authService.signOut();
-      
-      // Create new admin user
-      await authService.registerWithEmailAndPassword(
-        'sayquanmclaurin@gmail.com',
-        'Reckless@13',
-        'Sayquan McLaurin',
-      );
-      
-      // Promote to admin
-      final user = authService.currentUser;
-      if (user != null) {
-        await DatabaseService().updateUserRole(user.id, UserRole.admin);
-      }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Admin account created successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error creating admin: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _submitAsDriver() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      
-      // Try to sign in first
-      try {
-        await authService.signInWithEmailAndPassword(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
-        
-        // Always ensure the user has driver role after signing in
-        final user = authService.currentUser;
-        if (user != null) {
-          await DatabaseService().updateUserRole(user.id, UserRole.driver);
-          // Force refresh auth state to get updated role
-          await authService.refreshUser();
-        }
-      } catch (e) {
-        // If sign in fails, create the driver account
-        await authService.registerWithEmailAndPassword(
-          _emailController.text.trim(),
-          _passwordController.text,
-          'Driver User',
-        );
-        
-        // Promote to driver role
-        final user = authService.currentUser;
-        if (user != null) {
-          await DatabaseService().updateUserRole(user.id, UserRole.driver);
-          // Force refresh auth state to get updated role
-          await authService.refreshUser();
-        }
       }
     } catch (e) {
       setState(() {
@@ -314,193 +188,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        // Testing Panel - Admin Access
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          margin: const EdgeInsets.only(bottom: 24),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF6C5CE7), Color(0xFFA29BFE)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF6C5CE7).withValues(alpha: 0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(
-                                      Icons.science,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text(
-                                    'Testing Panel',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              // First row - Admin and User
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () async {
-                                        setState(() {
-                                          _emailController.text = 'sayquanmclaurin@gmail.com';
-                                          _passwordController.text = 'Reckless@13';
-                                          _isLoginMode = true;
-                                        });
-                                        await _submitAsAdmin();
-                                      },
-                                      icon: const Icon(Icons.admin_panel_settings, size: 18),
-                                      label: const Text('Admin'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white,
-                                        foregroundColor: const Color(0xFF6C5CE7),
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () async {
-                                        setState(() {
-                                          _emailController.text = 'user@test.com';
-                                          _passwordController.text = 'test123';
-                                          _isLoginMode = true;
-                                        });
-                                        await _submit();
-                                      },
-                                      icon: const Icon(Icons.person, size: 18),
-                                      label: const Text('Customer'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          side: const BorderSide(color: Colors.white),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              // Second row - Driver
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    setState(() {
-                                      _emailController.text = 'driver@smallcargo.com';
-                                      _passwordController.text = 'driver123';
-                                      _isLoginMode = true;
-                                    });
-                                    await _submitAsDriver();
-                                  },
-                                  icon: const Icon(Icons.local_shipping, size: 18),
-                                  label: const Text('Driver Login'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              // Admin Reset Button
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    // Show confirmation dialog
-                                    final confirmed = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Create New Admin'),
-                                        content: const Text(
-                                          'This will create admin account: sayquanmclaurin@gmail.com\nContinue?',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () => Navigator.pop(context, true),
-                                            child: const Text('Create'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    
-                                    if (confirmed == true) {
-                                      await _clearAndRecreateUsers();
-                                    }
-                                  },
-                                  icon: const Icon(Icons.settings, size: 18),
-                                  label: const Text('Create New Admin'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.purple,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // OR Divider
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: Colors.grey[300])),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'OR',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: Colors.grey[300])),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
                         
                         // Name field (only for registration)
                         if (!_isLoginMode) ...[
